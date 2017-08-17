@@ -1,0 +1,8 @@
+# Dev/Deployment
+sphinx
+sphinx_rtd_theme
+nose
+coverage
+pypi-publisher
+pyzmq>=17.0.0
+tornado>=4.5
