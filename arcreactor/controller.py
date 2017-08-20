@@ -4,6 +4,8 @@ import time
 import argparse
 import asyncio
 from .server import start_server
+from .protobufs.reactors_pb2 import ReactorSystem
+from .protobufs.kinetics_pb2 import SystemKinetics
 
 
 zmq.asyncio.install()
@@ -20,17 +22,19 @@ class Controller:
         self.vision_sock.connect(zmq_uri)
         #we only want vision updates
         sub_topic = 'vision-update'
-        print('listening for topic: {}'.format(sub_topic))
+        print('listening for topic: {} on SUB'.format(sub_topic))
         self.vision_sock.subscribe(sub_topic.encode())
 
         #register publishing socket
         zmq_uri = 'tcp://{}:{}'.format(cc_hostname, zmq_pub_port)
-        print('Connecting PUB Socket to {}'.format(zmq_uri))
+        print('Connecting PUB Socket to {}. Will publish simulation-update'.format(zmq_uri))
         self.pub_sock = self.ctx.socket(zmq.PUB)
         self.pub_sock.connect(zmq_uri)
 
         self.frequency = 1
-        self.simulation_state = 'test'
+
+        self.vision_state = ReactorSystem()
+        self.simulation_state = SystemKinetics()
 
     async def handle_start(self,server_port):
         '''Begin processing reactor simulation'''
@@ -42,19 +46,20 @@ class Controller:
 
         while True:
             await self.update_loop()
+            sys.stdout.flush()
 
     async def update_simulation(self, vision_state):
-        asyncio.sleep(0.25)
-        pass
+        self.simulation_state.time = vision_state.time
+        await asyncio.sleep(0.25)
 
     async def update_loop(self):
         msg_parts = await self.vision_sock.recv_multipart()
-        vision_update = msg_parts[1]
+        self.vision_state.ParseFromString(msg_parts[1])
         start_time = time.time()
-        await self.update_simulation(vision_update)
+        await self.update_simulation(self.vision_state)
         #exponential moving average of update frequency
         self.frequency = self.frequency * 0.8 +  0.2 / max(0.0001, time.time() - start_time)
-        await self.pub_sock.send_multipart(['simulation-update'.encode(), self.simulation_state.encode()])
+        await self.pub_sock.send_multipart(['simulation-update'.encode(), self.simulation_state.SerializeToString()])
 
 
 def init(server_port, zmq_sub_port, zmq_pub_port, cc_hostname):

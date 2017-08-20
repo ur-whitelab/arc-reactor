@@ -7,6 +7,7 @@ from tornado.platform.asyncio import AsyncIOMainLoop
 import asyncio
 import os
 import json
+from .analysis import *
 
 AsyncIOMainLoop().install()
 
@@ -27,6 +28,34 @@ class HtmlPageHandler(tornado.web.RequestHandler):
             # Send response
             self.finish(err_html)
 
+class StreamHandler(tornado.web.RequestHandler):
+    def initialize(self, controller):
+        self.controller = controller
+
+    async def get(self):
+        '''
+        Build JPG stream using the multipart HTTP header protocol
+        '''
+        # Set http header fields
+        self.set_header('Cache-Control',
+                        'no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0')
+        self.set_header('Connection', 'close')
+        self.set_header('Content-Type', 'multipart/x-mixed-replace;boundary=--boundarydonotcross')
+        self.set_header( 'Pragma', 'no-cache')
+        print('Received request, sending stream')
+
+        while True:
+            await asyncio.sleep(1)
+            if self.request.connection.stream.closed():
+                print('Request closed')
+                return
+            jpg = plot_reactors(self.controller.simulation_state)
+            self.write("--boundarydonotcross\n")
+            self.write("Content-type: image/jpg\r\n")
+            self.write("Content-length: %s\r\n\r\n" % len(jpg))
+            self.write(jpg)
+            await tornado.gen.Task(self.flush)
+
 
 class StatsHandler(tornado.web.RequestHandler):
     '''Provides stats on speed of processing'''
@@ -43,6 +72,7 @@ class StatsHandler(tornado.web.RequestHandler):
 def start_server(controller, port=8888):
     app = tornado.web.Application([
         (r"/",HtmlPageHandler),
+        (r"/stream.mjpg", StreamHandler, {'controller': controller}),
         (r"/stats", StatsHandler, {'controller': controller})
     ])
     print('Starting server on port {}'.format(port))
