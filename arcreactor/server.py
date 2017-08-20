@@ -2,9 +2,7 @@
 #!/usr/bin/env python3
 '''Minimal sevrer to send/receive updates via HTTP instead of ZMQ'''
 
-
 import tornado.web
-import cv2
 from tornado.platform.asyncio import AsyncIOMainLoop
 import asyncio
 import os
@@ -49,3 +47,8 @@ def start_server(controller, port=8888):
     ])
     print('Starting server on port {}'.format(port))
     app.listen(port)
+
+async def get_process_info(process, url):
+    http_client = AsyncHTTPClient()
+    response = await http_client.fetch(hostname + ':' + port + '/process/' + process)
+    return json.loads(response.body)
