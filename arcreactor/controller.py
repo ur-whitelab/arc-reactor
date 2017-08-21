@@ -6,6 +6,7 @@ import asyncio
 from .server import start_server
 from .protobufs.reactors_pb2 import ReactorSystem
 from .protobufs.kinetics_pb2 import SystemKinetics
+from .analysis import Analyzer
 
 
 zmq.asyncio.install()
@@ -32,6 +33,8 @@ class Controller:
         self.pub_sock.connect(zmq_uri)
 
         self.frequency = 1
+        self.analyzer = Analyzer()
+        self.stream_number = self.analyzer.plot_number
 
         self.vision_state = ReactorSystem()
         self.simulation_state = SystemKinetics()
