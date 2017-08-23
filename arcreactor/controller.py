@@ -53,7 +53,9 @@ class Controller:
 
     async def update_simulation(self, vision_state):
         self.simulation_state.time = vision_state.time
-        await asyncio.sleep(0.25)
+        simulate = Simulation()
+        self.simulation_state = await simulate.calculate()
+        return self.simulation_state
 
     async def update_loop(self):
         msg_parts = await self.vision_sock.recv_multipart()
