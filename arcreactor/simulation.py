@@ -43,6 +43,6 @@ class Simulation:
         mf3 = c3 / np.sum(c3)
         temp = 'room temperature'
         pressure =  '1atm'                      #Specific to this reaction
-        return c1, c2, c3, temp, pressure       #Concentration with time
+        return time.time(), [c1, temp, pressure], [c2, temp, pressure], [c3, temp, pressure]       #Concentration with time
 
 
