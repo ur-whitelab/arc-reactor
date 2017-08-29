@@ -3,7 +3,7 @@ import asyncio
 import datetime as dt
 import time
 from scipy.integrate import odeint
-from .protobufs.reactors_pb2 import ReactorSystem
+from .protobufs.graph_pb2 import Graph
 from .protobufs.kinetics_pb2 import SystemKinetics
 
 # Hydrolysis of ester - A psuedo first order chemical reaction
@@ -17,7 +17,7 @@ class Simulation:
         self.reactor_number = 3
         self.reactor_volumes = np.asarray([2,2,2])
         self.volumetric_feed_rates = np.asarray([0.5,0.5])
-        self.molar_feed_rate = np.asarray([1,1])      
+        self.molar_feed_rate = np.asarray([1,1])
 
     def calculate(self):
         '''Calculates all the kinetics of the reactors'''
@@ -27,7 +27,7 @@ class Simulation:
 
         def rxn_d(c, t, k=0.01):
             return -k * c
-        
+
         ca1 = odeint(rxn_d, c0[0], t_int)
         x1 = 1 - ca1 / c0[0]    #Conversion
         x = int(time.time() * 1000 - self.start_time * 1000)

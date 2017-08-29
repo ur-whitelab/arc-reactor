@@ -4,7 +4,7 @@ import time
 import argparse
 import asyncio
 from .server import start_server
-from .protobufs.reactors_pb2 import ReactorSystem
+from .protobufs.graph_pb2 import Graph
 from .protobufs.kinetics_pb2 import SystemKinetics
 from .analysis import Analyzer
 
@@ -36,7 +36,7 @@ class Controller:
         self.analyzer = Analyzer()
         self.stream_number = self.analyzer.plot_number
 
-        self.vision_state = ReactorSystem()
+        self.vision_state = Graph()
         self.simulation_state = SystemKinetics()
 
     async def handle_start(self,server_port):

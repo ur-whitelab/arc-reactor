@@ -7,6 +7,7 @@ from tornado.platform.asyncio import AsyncIOMainLoop
 import asyncio
 import os
 import json
+from .simulation import *
 from .analysis import *
 
 AsyncIOMainLoop().install()
