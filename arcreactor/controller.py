@@ -53,7 +53,7 @@ class Controller:
 
     async def update_simulation(self, vision_state):
         self.simulation_state.time = vision_state.time
-        simulate = Simulation()
+        simulate = Simulation(vision_state.time)
         self.simulation_state = await simulate.calculate()
         return self.simulation_state
 

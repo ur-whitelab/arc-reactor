@@ -12,12 +12,13 @@ from .protobufs.kinetics_pb2 import SystemKinetics
 
 class Simulation:
 
-    def __init__(self):
+    def __init__(self, start_time):
         #For demo purposes, the values are fixed
         self.reactor_number = 3
         self.reactor_volumes = np.asarray([2,2,2])
         self.volumetric_feed_rates = np.asarray([0.5,0.5])
         self.molar_feed_rate = np.asarray([1,1])
+        self.start_time = start_time
 
     def calculate(self):
         '''Calculates all the kinetics of the reactors'''
