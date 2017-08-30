@@ -32,8 +32,9 @@ class Controller:
         self.pub_sock = self.ctx.socket(zmq.PUB)
         self.pub_sock.connect(zmq_uri)
 
+        self.simulator = Simulation(time.time())
+        self.analyzer = Analyzer(time.time())
         self.frequency = 1
-        self.analyzer = Analyzer()
         self.stream_number = self.analyzer.plot_number
 
         self.vision_state = Graph()
@@ -53,8 +54,7 @@ class Controller:
 
     async def update_simulation(self, vision_state):
         self.simulation_state.time = vision_state.time
-        simulate = Simulation(vision_state.time)
-        self.simulation_state = await simulate.calculate()
+        self.simulation_state = simulator.calculate(simulation_state)
         return self.simulation_state
 
     async def update_loop(self):
