@@ -41,4 +41,5 @@ class Analyzer:
         fig.legend()
         output = io.BytesIO()
         fig.savefig(output, format='jpg')
+        fig.clf()
         return output.getvalue()
