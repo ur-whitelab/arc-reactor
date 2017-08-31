@@ -1,5 +1,6 @@
 import zmq
 import zmq.asyncio
+import sys
 import time
 import argparse
 import asyncio
@@ -32,7 +33,7 @@ class Controller:
         self.pub_sock = self.ctx.socket(zmq.PUB)
         self.pub_sock.connect(zmq_uri)
 
-        self.simulator = Simulation(time.time())
+        self.simulator = Simulation(0)
         self.analyzer = Analyzer(time.time())
         self.frequency = 1
         self.stream_number = self.analyzer.plot_number
@@ -45,7 +46,6 @@ class Controller:
 
         start_server(self,server_port)
         print('Started arcreactor server')
-        import sys
         sys.stdout.flush()
 
         while True:
@@ -53,6 +53,8 @@ class Controller:
             sys.stdout.flush()
 
     async def update_simulation(self, vision_state):
+        if self.simulator.start_time == 0:
+            self.simulator.start_time = vision_state.time
         self.simulation_state.time = vision_state.time
         self.simulation_state = self.simulator.calculate(self.simulation_state)
         return self.simulation_state
