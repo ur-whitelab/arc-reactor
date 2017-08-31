@@ -3,7 +3,7 @@ import asyncio
 import datetime as dt
 import time
 from scipy.integrate import odeint
-from .protobufs.kinetics_pb2 import SystemKinetics
+from .protobufs.kinetics_pb2 import *
 
 # Hydrolysis of ester - A psuedo first order chemical reaction
 # All reactors are equally sized and operate at the same temperature
@@ -32,7 +32,7 @@ class Simulation:
         ca1 = odeint(rxn_d, c0[0], t_int)
         x1 = 1 - ca1 / c0[0]    #Conversion
         x = int(time.time() * 1000 - self.start_time * 1000)
-
+        k = 0.01
         # The following steps for calculating reactor concentrations can be looped later
         c[0] = np.asarray([ca1[x], ca1[x], c0[0] - ca1[x], c0[0] - ca1[x]])
         mf1 = c[0] / np.sum(c[0])
@@ -47,7 +47,7 @@ class Simulation:
 
         simulation_state.time = time.time()
         for i in range(3):
-            simulation_state.kinetics.append([temp, pressure, c[i]]) 
+            simulation_state.kinetics.append([temp, pressure, c[i]])
 
         return simulation_state
 

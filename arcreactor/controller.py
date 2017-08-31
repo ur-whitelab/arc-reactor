@@ -7,6 +7,7 @@ from .server import start_server
 from .protobufs.graph_pb2 import Graph
 from .protobufs.kinetics_pb2 import SystemKinetics
 from .analysis import Analyzer
+from .simulation import Simulation
 
 
 zmq.asyncio.install()
@@ -54,7 +55,7 @@ class Controller:
 
     async def update_simulation(self, vision_state):
         self.simulation_state.time = vision_state.time
-        self.simulation_state = simulator.calculate(simulation_state)
+        self.simulation_state = self.simulator.calculate(self.simulation_state)
         return self.simulation_state
 
     async def update_loop(self):
