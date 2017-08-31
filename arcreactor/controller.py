@@ -9,7 +9,6 @@ from .protobufs.kinetics_pb2 import SystemKinetics
 from .analysis import Analyzer
 from .simulation import Simulation
 
-
 zmq.asyncio.install()
 
 class Controller:
