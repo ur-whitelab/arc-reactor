@@ -14,9 +14,8 @@ class Analyzer:
         self.xdata = []
         self.r = []
 
-    def get_plot(self, i, simulation_state):
-        if i == 0:
-            return self.plot_reactors(simulation_state)
+    def get_plot(self, name, simulation_state):
+        return self.plot_reactors(simulation_state)
 
     def plot_reactors(self,simulation_state):
         fig, axes = plt.subplots(len(simulation_state.kinetics), sharex = True, sharey = True)
@@ -41,4 +40,5 @@ class Analyzer:
         fig.legend()
         output = io.BytesIO()
         fig.savefig(output, format='jpg')
+        plt.clf()
         return output.getvalue()

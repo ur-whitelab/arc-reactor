@@ -33,11 +33,10 @@ class StreamHandler(tornado.web.RequestHandler):
     def initialize(self, controller):
         self.controller = controller
 
-    async def get(self, index):
+    async def get(self, name):
         '''
         Build JPG stream using the multipart HTTP header protocol
         '''
-        index = int(index)
         # Set http header fields
         self.set_header('Cache-Control',
                         'no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0')
@@ -51,7 +50,7 @@ class StreamHandler(tornado.web.RequestHandler):
             if self.request.connection.stream.closed():
                 print('Request closed')
                 return
-            jpg = self.controller.analyzer.get_plot(index, self.controller.simulation_state)
+            jpg = self.controller.analyzer.get_plot(name, self.controller.simulation_state)
             self.write("--boundarydonotcross\n")
             self.write("Content-type: image/jpg\r\n")
             self.write("Content-length: %s\r\n\r\n" % len(jpg))
@@ -74,7 +73,7 @@ class StatsHandler(tornado.web.RequestHandler):
 def start_server(controller, port=8888):
     app = tornado.web.Application([
         (r"/",HtmlPageHandler),
-        (r"/([0-9]+)/stream.mjpg", StreamHandler, {'controller': controller}),
+        (r"/stream/([a-z\-]+).mjpg", StreamHandler, {'controller': controller}),
         (r"/stats", StatsHandler, {'controller': controller})
     ])
     print('Starting server on port {}'.format(port))
