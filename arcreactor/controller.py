@@ -38,7 +38,7 @@ class Controller:
         self.frequency = 1
         self.stream_number = self.analyzer.plot_number
 
-        self.vision_state = Graph()
+        self.graph = Graph()
         self.simulation_state = SystemKinetics()
 
     async def handle_start(self,server_port):
@@ -52,18 +52,20 @@ class Controller:
             await self.update_loop()
             sys.stdout.flush()
 
-    async def update_simulation(self, vision_state):
+    async def update_simulation(self):
         if self.simulator.start_time == 0:
-            self.simulator.start_time = vision_state.time
-        self.simulation_state.time = vision_state.time
+            self.simulator.start_time = self.graph.time
+        self.simulation_state.time = self.graph.time
+        for item in self.graph.nodes:
+            self.simulation_state.kinetics.add()
         self.simulation_state = self.simulator.calculate(self.simulation_state)
         return self.simulation_state
 
     async def update_loop(self):
         msg_parts = await self.vision_sock.recv_multipart()
-        self.vision_state.ParseFromString(msg_parts[1])
+        self.graph.ParseFromString(msg_parts[1])
         start_time = time.time()
-        await self.update_simulation(self.vision_state)
+        await self.update_simulation()
         #exponential moving average of update frequency
         self.frequency = self.frequency * 0.8 +  0.2 / max(0.0001, time.time() - start_time)
         await self.pub_sock.send_multipart(['simulation-update'.encode(), self.simulation_state.SerializeToString()])
