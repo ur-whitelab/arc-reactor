@@ -36,7 +36,7 @@ class Controller:
         self.simulator = Simulation(0)
         self.analyzer = Analyzer(time.time())
         self.frequency = 1
-        self.stream_number = self.analyzer.plot_number
+        self.stream_names = self.analyzer.stream_names
 
         self.graph = Graph()
         self.simulation_state = SystemKinetics()

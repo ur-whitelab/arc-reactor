@@ -14,10 +14,17 @@ class Analyzer:
         self.xdata = []
         self.r = []
 
+    @property
+    def stream_names(self):
+        return {'Reactor': ['plot']}
+
     def get_plot(self, name, simulation_state):
         return self.plot_reactors(simulation_state)
 
     def plot_reactors(self,simulation_state):
+        if(len(simulation_state.kinetics) == 0):
+            return None
+
         fig, axes = plt.subplots(len(simulation_state.kinetics), sharex = True, sharey = True)
         #fig.axis([0,600, 0, 2])
         labels = ['C2H5COOCH3', 'H2O', 'CH3COOH', 'C2H5OH']
@@ -38,7 +45,8 @@ class Analyzer:
         axes[2].set_xlabel('Time (seconds)')
         axes[1].set_ylabel('Concentration (moles/dm3)')
         fig.legend()
-        output = io.BytesIO()
-        fig.savefig(output, format='jpg')
-        plt.clf()
-        return output.getvalue()
+        with io.BytesIO as output:
+            output = io.BytesIO()
+            fig.savefig(output, format='jpg')
+            plt.clf()
+            return output.getvalue()
