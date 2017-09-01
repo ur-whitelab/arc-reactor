@@ -46,17 +46,14 @@ class Simulation:
         temp = 25
         pressure =  1                      #Specific to this reaction
 
-        simulation_state.time = int(time.time())
+        #simulation_state.time = int(time.time())
         for i in range(len(simulation_state.kinetics)):#conc is the list of lists of concentrations of reactor species. its length is the number of reactors.
             simulation_state.kinetics[i].temperature = temp
             simulation_state.kinetics[i].pressure = pressure
-            while(len(simulation_state.kinetics[i].mole_fraction) <= len(conc[i])):
+            while(len(simulation_state.kinetics[i].mole_fraction) < len(conc[i])):
                 simulation_state.kinetics[i].mole_fraction.append(float(0))
             for j in range(len(conc[i])):
                 simulation_state.kinetics[i].mole_fraction[j] = (conc[i][j])
-        print(len(simulation_state.kinetics), simulation_state)
-
-
         return simulation_state
 
 

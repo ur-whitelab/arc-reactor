@@ -24,26 +24,22 @@ class Analyzer:
     def plot_reactors(self,simulation_state):
         if(len(simulation_state.kinetics) == 0):
             return None
-
-        fig, axes = plt.subplots(len(simulation_state.kinetics), 1,  sharex = True, sharey = True)
+        fig, axes = plt.subplots(len(simulation_state.kinetics), 1,  sharex = True, sharey = True, squeeze=False)
         #fig.axis([0,600, 0, 2])
         labels = ['C2H5COOCH3', 'H2O', 'CH3COOH', 'C2H5OH']
         colors = ['b', 'g', 'r', 'y']
 
-        x = simulation_state.time - self.start_time          #time
+        x = int(simulation_state.time - self.start_time)
         self.xdata.append(x)
         i = 0
-        if ( len(simulation_state.kinetics) > 0):
-            for ax in axes:#i in range(len(simulation_state.kinetics)):
-                y = simulation_state.kinetics[i].mole_fraction
-                if(len(self.r) < (i+1)):
-                    self.r.append([])
-                self.r[i].append(y)
-                ydata = np.asarray(self.r[i])
-
-                for j in range(len(y)):
-                    ax.plot(self.xdata,ydata[:,j], color = colors[j], label = labels[j])
-                i += 1
+        for i,ax in enumerate(axes[:,0]):
+            y = simulation_state.kinetics[i].mole_fraction
+            if(len(self.r) == i):
+                self.r.append([])
+            self.r[i].append(y)
+            ydata = np.array(self.r[i])
+            for j in range(len(y)):
+                ax.plot(self.xdata,ydata[:,j], color = colors[j], label = labels[j])
 
         with io.BytesIO() as output:
             fig.savefig(output, format='jpg')

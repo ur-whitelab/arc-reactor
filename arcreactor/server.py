@@ -13,7 +13,6 @@ from .analysis import *
 AsyncIOMainLoop().install()
 
 RESOURCES = os.path.join(os.path.dirname(__file__), os.pardir, 'resources')
-WEB_STRIDE = 1
 
 class HtmlPageHandler(tornado.web.RequestHandler):
     async def get(self, file_name='index.html'):
@@ -46,7 +45,7 @@ class StreamHandler(tornado.web.RequestHandler):
         print('Received request, sending stream')
 
         while True:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0)
             if self.request.connection.stream.closed():
                 print('Request closed')
                 return
