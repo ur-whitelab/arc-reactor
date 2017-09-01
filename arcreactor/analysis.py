@@ -34,7 +34,7 @@ class Analyzer:
         self.xdata.append(x)
         for i in range(len(simulation_state.kinetics)):
             y = simulation_state.kinetics[i].mole_fraction
-            if(not self.r[i]):
+            if(len(self.r) < (i+1)):
                 self.r.append([])
             self.r[i].append(y)
             ydata = np.asarray(self.r[i])
@@ -42,11 +42,7 @@ class Analyzer:
             for j in range(len(y)):
                 axes[i].plot(xdata,ydata[:,j], color = colors[j], label = labels[j])
 
-        axes[2].set_xlabel('Time (seconds)')
-        axes[1].set_ylabel('Concentration (moles/dm3)')
-        fig.legend()
         with io.BytesIO as output:
-            output = io.BytesIO()
             fig.savefig(output, format='jpg')
             plt.clf()
             return output.getvalue()

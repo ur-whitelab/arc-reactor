@@ -47,13 +47,13 @@ class Simulation:
         pressure =  1                      #Specific to this reaction
 
         simulation_state.time = int(time.time())
-        for i in range(len(conc)):#conc is the list of lists of concentrations of reactor species. its length is the number of reactors.
+        for i in range(simulation_state.kinetics):#conc is the list of lists of concentrations of reactor species. its length is the number of reactors.
             rxr = ReactorKinetics()
             rxr.temperature = temp
             rxr.pressure = pressure
             for j in range(len(conc[i])):
                 rxr.mole_fraction.append(conc[i][j])
-            simulation_state.kinetics.extend([rxr])
+            simulation_state.kinetics[i] = rxr
 
         return simulation_state
 
