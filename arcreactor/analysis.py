@@ -42,7 +42,7 @@ class Analyzer:
             for j in range(len(y)):
                 axes[i].plot(xdata,ydata[:,j], color = colors[j], label = labels[j])
 
-        with io.BytesIO as output:
+        with io.BytesIO() as output:
             fig.savefig(output, format='jpg')
             plt.clf()
             return output.getvalue()
