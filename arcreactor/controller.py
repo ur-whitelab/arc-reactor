@@ -34,7 +34,7 @@ class Controller:
         self.pub_sock.connect(zmq_uri)
 
         self.simulator = Simulation(0)
-        self.analyzer = Analyzer(time.time())
+        self.analyzer = Analyzer()
         self.frequency = 1
         self.stream_names = self.analyzer.stream_names
 
@@ -56,7 +56,7 @@ class Controller:
         if self.simulator.start_time == 0:
             self.simulator.start_time = self.graph.time
         self.simulation_state.time = self.graph.time
-        while(len(self.simulation_state.kinetics) < len(self.graph.nodes)):#only add when we need to
+        while(len(self.simulation_state.kinetics) < len(self.graph.nodes)): #only add when we need to
             self.simulation_state.kinetics.add()
         self.simulation_state = self.simulator.calculate(self.simulation_state)
         await asyncio.sleep(0)

@@ -8,9 +8,8 @@ import time
 
 class Analyzer:
 
-    def __init__(self, start_time):
+    def __init__(self):
         self.plot_number = 1
-        self.start_time = start_time
         self.xdata = []
         self.r = []
 
@@ -25,11 +24,10 @@ class Analyzer:
         if(len(simulation_state.kinetics) == 0):
             return None
         fig, axes = plt.subplots(len(simulation_state.kinetics), 1,  sharex = True, sharey = True, squeeze=False)
-        #fig.axis([0,600, 0, 2])
         labels = ['C2H5COOCH3', 'H2O', 'CH3COOH', 'C2H5OH']
         colors = ['b', 'g', 'r', 'y']
 
-        x = int(simulation_state.time - self.start_time)
+        x = simulation_state.time
         self.xdata.append(x)
         i = 0
         for i,ax in enumerate(axes[:,0]):
