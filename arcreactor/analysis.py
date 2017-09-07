@@ -12,7 +12,8 @@ class Analyzer:
         self.plot_number = 1
         self.xdata = []
         self.r = []
-
+        self.reactor_number = 0
+        self.start_time = 0
     @property
     def stream_names(self):
         return {'Reactor': ['plot']}
@@ -23,11 +24,14 @@ class Analyzer:
     def plot_reactors(self,simulation_state):
         if(len(simulation_state.kinetics) == 0):
             return None
+        if(self.reactor_number != len(simulation_state.kinetics)):
+            self.reactor_number = len(simulation_state.kinetics)
+            self.start_time = simulation_state.time
         fig, axes = plt.subplots(len(simulation_state.kinetics), 1,  sharex = True, sharey = True, squeeze=False)
         labels = ['C2H5COOCH3', 'H2O', 'CH3COOH', 'C2H5OH']
         colors = ['b', 'g', 'r', 'y']
 
-        x = simulation_state.time
+        x = (simulation_state.time - start_time)*0.04      #display time in seconds(considering ~25fps)
         self.xdata.append(x)
         i = 0
         for i,ax in enumerate(axes[:,0]):

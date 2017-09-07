@@ -14,7 +14,7 @@ class Simulation:
 
     def __init__(self, start_time):
         #For demo purposes, the values are fixed
-        self.reactor_number = 3
+        self.reactor_number = 0
         self.reactor_volumes = np.asarray([2,2,2])
         self.volumetric_feed_rates = np.asarray([0.5,0.5])
         self.molar_feed_rate = np.asarray([1,1])
@@ -23,11 +23,14 @@ class Simulation:
     def calculate(self, simulation_state):
         if(len(simulation_state.kinetics) == 0):
             return simulation_state
+        if(self.reactor_number != len(simulation_state.kinetics)):  #reset simulation when no of reactors change
+            self.reactor_number = len(simulation_state.kinetics)
+            self.start_time = simulation_state.time
         conc = []
         conc0 = self.molar_feed_rate / self.volumetric_feed_rates  # mol/dm3
         tau = self.reactor_volumes[0] / self.volumetric_feed_rates[0]
         k = 0.01
-        t_int = np.linspace(0, 3600, 3600000)  # simulate for one hour -- compensate for frame-by-frame updates
+        t_int = np.linspace(0, 3600, 3600*25)  # simulate for one hour -- compensate for frame-by-frame updates(~25fps)
 
         def rxn_d(conc, t, k=0.01):
             return -k * conc
