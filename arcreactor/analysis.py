@@ -31,7 +31,7 @@ class Analyzer:
         labels = ['C2H5COOCH3', 'H2O', 'CH3COOH', 'C2H5OH']
         colors = ['b', 'g', 'r', 'y']
 
-        x = (simulation_state.time - start_time)*0.04      #display time in seconds(considering ~25fps)
+        x = (simulation_state.time - self.start_time)*0.04      #display time in seconds(considering ~25fps)
         self.xdata.append(x)
         i = 0
         for i,ax in enumerate(axes[:,0]):
