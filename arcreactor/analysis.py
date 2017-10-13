@@ -23,14 +23,17 @@ class Analyzer:
 
     def plot_reactors(self,simulation_state):
         if(len(simulation_state.kinetics) == 0):
+            self.reactor_number = 0
             return None
         if(self.reactor_number != len(simulation_state.kinetics)):
             self.reactor_number = len(simulation_state.kinetics)
             self.start_time = simulation_state.time
+            self.xdata = []
+            self.r = []
         fig, axes = plt.subplots(len(simulation_state.kinetics), 1,  sharex = True, sharey = True, squeeze=False)
         labels = ['C2H5COOCH3', 'H2O', 'CH3COOH', 'C2H5OH']
         colors = ['b', 'g', 'r', 'y']
-
+        print(self.reactor_number)
         x = (simulation_state.time - self.start_time)*0.04      #display time in seconds(considering ~25fps)
         self.xdata.append(x)
         i = 0
@@ -41,7 +44,9 @@ class Analyzer:
             self.r[i].append(y)
             ydata = np.array(self.r[i])
             for j in range(len(y)):
-                ax.plot(self.xdata,ydata[:,j], color = colors[j], label = labels[j])
+                #print(self.xdata, ydata[:,j])
+                ax.plot(self.xdata, ydata[:,j], color = colors[j], label = labels[j])
+            plt.legend()
 
         with io.BytesIO() as output:
             fig.savefig(output, format='jpg')
