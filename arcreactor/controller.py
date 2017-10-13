@@ -56,8 +56,12 @@ class Controller:
         if self.simulator.start_time == 0:
             self.simulator.start_time = self.graph.time
         self.simulation_state.time = self.graph.time
-        while(len(self.simulation_state.kinetics) < len(self.graph.nodes)): #only add when we need to
-            self.simulation_state.kinetics.add()
+        if(len(self.simulation_state.kinetics) > len(self.graph.nodes)):
+            for i in range(len(self.simulation_state.kinetics) - len(self.graph.nodes)):
+                del self.simulation_state.kinetics[i]
+        elif(len(self.simulation_state.kinetics) < len(self.graph.nodes)): #only add when we need to
+            for i in range(abs(len(self.simulation_state.kinetics) - len(self.graph.nodes))):
+                self.simulation_state.kinetics.add()
         self.simulation_state = self.simulator.calculate(self.simulation_state)
         await asyncio.sleep(0)
         return self.simulation_state
