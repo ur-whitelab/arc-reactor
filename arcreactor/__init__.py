@@ -4,6 +4,9 @@ import time
 import argparse
 import asyncio
 from .server import start_server
+from .analysis import *
+#from .controller import *
+from .simulation import *
 
 
 zmq.asyncio.install()

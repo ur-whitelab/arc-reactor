@@ -11,7 +11,7 @@ from .protobufs.kinetics_pb2 import *
 # C2H5COOCH3 + H2O --> CH3COOH + C2H5OH
 
 class Simulation:
-
+    '''Controls simulation of objects'''
     def __init__(self, start_time):
         #For demo purposes, the values are fixed
         self.reactor_number = 0
@@ -21,6 +21,17 @@ class Simulation:
         self.start_time = start_time
 
     def calculate(self, simulation_state):
+        '''Function that does the actual simulation for number of objects specified by the protobuf
+        
+        Parameters
+        ----------
+        simulation_state : protobuf object
+
+        Returns
+        -------
+        simulation_state : protobuf object
+                        This protobuf specifies object properties in realtime
+        '''
         if(len(simulation_state.kinetics) == 0):
             return simulation_state
         if(self.reactor_number != len(simulation_state.kinetics)):  #reset simulation when no of reactors change
@@ -30,9 +41,10 @@ class Simulation:
         conc0 = self.molar_feed_rate / self.volumetric_feed_rates  # mol/dm3
         tau = self.reactor_volumes[0] / self.volumetric_feed_rates[0]
         k = 0.01
-        t_int = np.linspace(0, 3600, 3600*25)  # simulate for one hour -- compensate for frame-by-frame updates(~25fps)
+        t_int = np.linspace(0, 3600, 3600*25)  # simulate for one hour -- compensation for frame-by-frame updates(~25fps)
 
         def rxn_d(conc, t, k=0.01):
+            '''Calculating the rate of reaction'''
             return -k * conc
 
         x = simulation_state.time - self.start_time
@@ -44,7 +56,7 @@ class Simulation:
                 conc_limiting.append(conc_limiting[i-1] / (1 + tau * k))
             vals.append(float(conc_limiting[i][x]))
             conc.append([vals[i], vals[i], conc0[0] - vals[i], conc0[0] - vals[i]])
-        temp = 25
+        temp = 25         #Specific to this reaction, reaction occurs at room temperature
         pressure =  1     #Specific to this reaction
 
         for i in range(len(simulation_state.kinetics)): #conc is the list of lists of concentrations of reactor species. its length is the number of reactors.

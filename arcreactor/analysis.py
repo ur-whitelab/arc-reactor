@@ -7,13 +7,14 @@ import time
 
 
 class Analyzer:
-
+    '''Controls plotting of different object properties'''
     def __init__(self):
         self.plot_number = 1
         self.xdata = []
         self.r = []
         self.reactor_number = 0
         self.start_time = 0
+    
     @property
     def stream_names(self):
         return {'Reactor': ['plot']}
@@ -22,6 +23,18 @@ class Analyzer:
         return self.plot_reactors(simulation_state)
 
     def plot_reactors(self,simulation_state):
+        '''Plots reactor concentrations as received from simulation
+        Parameters
+        ----------
+        simulation_state : protobuf object
+                        The protobuf contains a time stamp and reactor concentrations. 
+        
+        Returns
+        -------
+        output.getvalue() : callable
+                        This method 'getvalue()' retrieves all contents of the file 'output' and returns it.
+
+        '''
         if(len(simulation_state.kinetics) == 0):
             self.reactor_number = 0
             return None
@@ -33,7 +46,6 @@ class Analyzer:
         fig, axes = plt.subplots(len(simulation_state.kinetics), 1,  sharex = True, sharey = True, squeeze=False)
         labels = ['C2H5COOCH3', 'H2O', 'CH3COOH', 'C2H5OH']
         colors = ['b', 'g', 'r', 'y']
-        print(self.reactor_number)
         x = (simulation_state.time - self.start_time)*0.04      #display time in seconds(considering ~25fps)
         self.xdata.append(x)
         i = 0
@@ -41,7 +53,7 @@ class Analyzer:
             y = simulation_state.kinetics[i].mole_fraction
             if(len(self.r) == i):
                 self.r.append([])
-            self.r[i].append(y)
+            self.r[i] = y
             ydata = np.array(self.r[i])
             for j in range(len(y)):
                 #print(self.xdata, ydata[:,j])
