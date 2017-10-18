@@ -1,6 +1,6 @@
 
 #!/usr/bin/env python3
-'''Minimal sevrer to send/receive updates via HTTP instead of ZMQ'''
+'''Minimal server to send/receive updates via HTTP instead of ZMQ'''
 
 import tornado.web
 from tornado.platform.asyncio import AsyncIOMainLoop
@@ -33,9 +33,7 @@ class StreamHandler(tornado.web.RequestHandler):
         self.controller = controller
 
     async def get(self, name):
-        '''
-        Build JPG stream using the multipart HTTP header protocol
-        '''
+        ''' Build JPG stream using the multipart HTTP header protocol'''
         # Set http header fields
         self.set_header('Cache-Control',
                         'no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0')
