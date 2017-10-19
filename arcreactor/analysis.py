@@ -14,7 +14,7 @@ class Analyzer:
         self.r = []
         self.reactor_number = 0
         self.start_time = 0
-    
+
     @property
     def stream_names(self):
         return {'Reactor': ['plot']}
@@ -24,15 +24,16 @@ class Analyzer:
 
     def plot_reactors(self,simulation_state):
         '''Plots reactor concentrations as received from simulation
+
         Parameters
         ----------
         simulation_state : protobuf object
-                        The protobuf contains a time stamp and reactor concentrations. 
-        
+                        Protobuf object contains a time stamp and object properties
+
         Returns
         -------
-        output.getvalue() : callable
-                        This method 'getvalue()' retrieves all contents of the file 'output' and returns it.
+        callable
+                  Callable that retrieves contents of the output file
 
         '''
         if(len(simulation_state.kinetics) == 0):

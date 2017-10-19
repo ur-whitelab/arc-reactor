@@ -4,11 +4,11 @@ import sys
 import time
 import argparse
 import asyncio
-from .server import start_server
-from .protobufs.graph_pb2 import Graph
-from .protobufs.kinetics_pb2 import SystemKinetics
-from .analysis import Analyzer
-from .simulation import Simulation
+from server import start_server
+from graph_pb2 import Graph
+from kinetics_pb2 import SystemKinetics
+from analysis import Analyzer
+from simulation import Simulation
 
 zmq.asyncio.install()
 
@@ -69,6 +69,7 @@ class Controller:
         return self.simulation_state
 
     async def update_loop(self):
+        '''Send messages to visualization'''
         msg_parts = await self.vision_sock.recv_multipart()
         self.graph.ParseFromString(msg_parts[1])
         start_time = time.time()

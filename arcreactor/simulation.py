@@ -3,7 +3,7 @@ import asyncio
 import datetime as dt
 import time
 from scipy.integrate import odeint
-from .protobufs.kinetics_pb2 import *
+#from .protobufs.kinetics_pb2 import *
 
 
 # Hydrolysis of ester - A psuedo first order chemical reaction
@@ -22,15 +22,16 @@ class Simulation:
 
     def calculate(self, simulation_state):
         '''Function that does the actual simulation for number of objects specified by the protobuf
-        
+
         Parameters
         ----------
         simulation_state : protobuf object
 
         Returns
         -------
-        simulation_state : protobuf object
-                        This protobuf specifies object properties in realtime
+        protobuf object
+                        Protobuf that specifies object properties
+
         '''
         if(len(simulation_state.kinetics) == 0):
             return simulation_state

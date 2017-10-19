@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # ARC-Reactor documentation build configuration file, created by
-# sphinx-quickstart on Wed Oct 18 12:49:46 2017.
+# sphinx-quickstart on Thu Oct 19 10:04:34 2017.
 #
 # This file is execfile()d with the current directory set to its
 # containing dir.
@@ -19,9 +19,9 @@
 #
 import os
 import sys
+sys.path.insert(0, os.path.abspath('../../'))
 sys.path.insert(0, os.path.abspath('../../arcreactor/'))
 sys.path.insert(0, os.path.abspath('../../arcreactor/protobufs'))
-sys.path.insert(0, os.path.abspath('../..'))
 
 # -- General configuration ------------------------------------------------
 
@@ -33,6 +33,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = ['sphinx.ext.autodoc',
+    'sphinx.ext.doctest',
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon']
 

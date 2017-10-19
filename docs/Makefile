@@ -3,10 +3,12 @@
 
 # You can set these variables from the command line.
 SPHINXOPTS    =
-SPHINXBUILD   = python -msphinx
+SPHINXBUILD   = sphinx-build
 SPHINXPROJ    = ARC-Reactor
 SOURCEDIR     = source
 BUILDDIR      = build
+PDFBUILDDIR   = /tmp
+PDF           = documentation.pdf
 
 # Put it first so that "make" without argument is like "make help".
 help:
