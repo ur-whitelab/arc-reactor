@@ -71,8 +71,8 @@ class Controller:
                     self.simulation_state.kinetics[j].label = self.graph.nodes[i].label
                     self.simulation_state.kinetics[j].id = self.graph.nodes[i].label
                     j += 1
-        if(len(self.simulation_state.kinetics) > j):
-            for k in range(len(self.simulation_state.kinetics) - j):
+        if(len(self.simulation_state.kinetics) > j): #delete extra kinetics objects
+            for i in range(len(self.simulation_state.kinetics) - j):
                 del self.simulation_state.kinetics[-1]
         self.simulation_state = self.simulator.calculate(self.simulation_state, self.graph)
         await asyncio.sleep(0)

@@ -23,58 +23,84 @@ class Simulation:
         self.time = 0
 
     def edge_list(self, vision_state):
-        ''' Reads labels from the vision protobuf and makes a dictionary edge directions showing reactor connections'''
-        edge_list = {}
-
-        for j in range(len(vision_state.edges)):
-            if(edge_list[vision_state.edges[j]]):
-                edge_list[vision_state.edges[j].idA].append(vision_state.edges[j].idB)
-            else:
-                edge_list[vision_state.edges[j].idA] = [vision_state.edges[j].idB]
+        ''' Reads labels from the vision protobuf and makes two dictionaries which record inward and outward connections respectively of reactors'''
+        edge_list_in = {}
+        edge_list_out = {}
         
-        return edge_list
+        for j in range(len(vision_state.edges)):
+            if(vision_state.edges[j].idA not in edge_list_out.keys()):
+                edge_list_out[vision_state.edges[j].idA] = []
+            if(vision_state.edges[j].idB not in edge_list_out.keys()):
+                edge_list_out[vision_state.edges[j].idB] = []
+            if(vision_state.edges[j].idA not in edge_list_in.keys()):
+                edge_list_in[vision_state.edges[j].idA] = []
+            if(vision_state.edges[j].idB not in edge_list_in.keys()):
+                edge_list_in[vision_state.edges[j].idB] = []
+            edge_list_out[vision_state.edges[j].idA].append(vision_state.edges[j].idB)
+            edge_list_in[vision_state.edges[j].idB].append(vision_state.edges[j].idA)
+        
+        return edge_list_in, edge_list_out
 
 
     def calculate(self, simulation_state, graph):
         '''Does the actual simulation for number of objects specified by the protobuf '''
 
-        edge_list = self.edge_list(graph)
+        edge_list_in, edge_list_out = self.edge_list(graph)
 
-        R = 8.314      # Universal gas constant (kJ/kmol K)
-        T = 298        # Temperature (K), Specific to this reaction, reaction occurs at room temperature
-        P =  1         # Pressure (atm), Specific to this reaction
-        
         if(len(simulation_state.kinetics) == 0):
             return simulation_state
         if(self.reactor_number != len(simulation_state.kinetics)):  #reset simulation when no of reactors change
             self.reactor_number = len(simulation_state.kinetics)
             self.start_time = simulation_state.time
-        conc = []
-        conc0 = self.molar_feed_rate / self.volumetric_feed_rates  # mol/dm3
-        tau = self.reactor_volumes[0] / self.volumetric_feed_rates[0]
         
-        k = math.exp(-E_act / (R * T))      # Rate constant
+        R = 8.314      # Universal gas constant (kJ/kmol K)
+        T = 298        # Temperature (K), Specific to this reaction, reaction occurs at room temperature
+        P =  1         # Pressure (atm), Specific to this reaction
+        
+        conc0 = self.molar_feed_rate / self.volumetric_feed_rates  # mol/dm3
+        tau = self.reactor_volumes[0] / self.volumetric_feed_rates[0]      # seconds
+        e_act = 100     #kJ/kmol, yet to use a model to calc e_act as per reaction
+        k = math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
         
         self.time = simulation_state.time - self.start_time
-        conc_limiting, vals = [conc0[0]], []
-        
-        for i in range(len(simulation_state.kinetics)):
-            if(simulation_state.kinetics[i].label == 'CSTR'):
-                conc_limiting.append(self.cstr(conc_limiting[i-1], tau = tau, k = k))
-            elif (simulation_state.kinetics[i].label == 'PFR'):
-                conc_limiting.append(self.pfr(conc_limiting[i-1], tau = tau, k = k))
+        conc_in, reactor_type, conc_limiting = {}, {}, {}
 
-            vals.append(conc_limiting[i])
-            conc.append([vals[i], vals[i], conc0[0] - vals[i], conc0[0] - vals[i]])
-        
-        #conc is the list of lists of concentrations of reactor species. its length is the number of reactors.
+        for i in range(len(simulation_state.kinetics)):
+            conc_in[simulation_state.kinetics[i].id] = [conc0[0]]
+            reactor_type[simulation_state.kinetics[i].id] = simulation_state.kinetics[i].label
+            conc_limiting[simulation_state.kinetics[i].id] = []
+
+        for i in edge_list_out:
+            if(edge_list_in[i] == []):
+                conc_limiting[i] = calc_conc(conc0, reactor_type[i])
+            elif(len(edge_list_in[i]) == 1):
+                conc_limiting[i] = calc_conc(conc_in[edge_list_in[i]], reactor_type[i])
+            else:
+                sum_conc, vol = 0, 0
+                for j in edge_list_in[i]:
+                    sum_conc += conc_in[j] * self.volumetric_feed_rates[i]
+                    vol += self.volumetric_feed_rates[i]
+                conc_limiting[i] = calc_conc(sum_conc/vol, reactor_type[i])
+
+            conc = [conc_limiting[i], conc_limiting[i], conc0[0] - conc_limiting[i], conc0[0] - conc_limiting[i]]
+            conc_in[i] = conc_limiting[i]
+            #conc is the list of lists of concentrations of chemical species. It's length is the number of reactors.
             simulation_state.kinetics[i].temperature = T
             simulation_state.kinetics[i].pressure = P
             while(len(simulation_state.kinetics[i].mole_fraction) < len(conc[i])):
                 simulation_state.kinetics[i].mole_fraction.append(float(0))
             for j in range(len(conc[i])):
-                simulation_state.kinetics[i].mole_fraction[j] = (conc[i][j])
+                simulation_state.kinetics[i].mole_fraction[j] = conc
         return simulation_state
+
+                
+        def calc_conc(initial_conc, reactor_type):
+            if(reactor_type == 'CSTR'):
+                conc_limiting = self.cstr(initial_conc, tau = tau, k = k)
+            elif(reactor_type == 'PFR'):
+                conc_limiting = self.pfr(initial_conc, tau = tau, k = k)
+            return conc_limiting
+
 
     def cstr(self, initial_conc, tau = 1, k = 0.1):
         '''Calculates concentrations for a first order reaction in a CSTR.
@@ -111,7 +137,7 @@ class Simulation:
         Returns
         -------
         float
-                Final concentration of the limiting reactor when it leaves the reactor
+                Final concentration of the limiting reactant when it leaves the reactor
         '''
-        out_conc_lr = initial_conc * (1 - math.exp**(-k * tau))     
+        out_conc_lr = initial_conc * (math.exp**(-k * tau))
         return out_conc_lr
