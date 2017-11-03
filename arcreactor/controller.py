@@ -57,23 +57,6 @@ class Controller:
         if self.simulator.start_time == 0:
             self.simulator.start_time = self.graph.time
         self.simulation_state.time = self.graph.time
-        j = 0       #for keeping a count of simulation_state.kinetics objects
-        for i in range(len(self.graph.nodes)):
-            if(self.graph.nodes[i].delete is True):
-                continue
-            else:
-                if(self.simulation_state.kinetics[j] is True):
-                    self.simulation_state.kinetics[j].label = self.graph.nodes[i].label
-                    self.simulation_state.kinetics[j].id = self.graph.nodes[i].label
-                    j += 1
-                else:
-                    self.simulation_state.kinetics.add()
-                    self.simulation_state.kinetics[j].label = self.graph.nodes[i].label
-                    self.simulation_state.kinetics[j].id = self.graph.nodes[i].label
-                    j += 1
-        if(len(self.simulation_state.kinetics) > j): #delete extra kinetics objects
-            for i in range(len(self.simulation_state.kinetics) - j):
-                del self.simulation_state.kinetics[-1]
         self.simulation_state = self.simulator.calculate(self.simulation_state, self.graph)
         await asyncio.sleep(0)
         return self.simulation_state
