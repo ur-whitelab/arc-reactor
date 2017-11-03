@@ -26,16 +26,18 @@ class Simulation:
         ''' Reads labels from the vision protobuf and makes two dictionaries which record inward and outward connections respectively of reactors'''
         edge_list_in = {}
         edge_list_out = {}
-        
+
         for i in range(len(vision_state.nodes)):
             edge_list_in[vision_state.nodes[i].id] = []
             edge_list_out[vision_state.nodes[i].id] = []
 
         if(len(vision_state.edges) > 0):
             for j in range(len(vision_state.edges)):
+                edge_list_out[vision_state.edges[j].idA] = []
+                edge_list_in[vision_state.edges[j].idB] = []
                 edge_list_out[vision_state.edges[j].idA].append(vision_state.edges[j].idB)
                 edge_list_in[vision_state.edges[j].idB].append(vision_state.edges[j].idA)
-        
+
         return edge_list_in, edge_list_out
 
 
@@ -49,23 +51,11 @@ class Simulation:
             if(graph.nodes[i].delete is True):
                 continue
             else:
-                if(simulation_state.kinetics[j] is True):
-                    simulation_state.kinetics[j].label = graph.nodes[i].label
-                    simulation_state.kinetics[j].id = graph.nodes[i].id
-                    if(graph.nodes[i].weight == 0):
-                        simulation_state.kinetics[j].temperature = T  #default
-                    else:
-                        simulation_state.kinetics[j].temperature = graph.nodes[i].weight
-                    j += 1
-                else:
-                    simulation_state.kinetics.add()
-                    simulation_state.kinetics[j].label = graph.nodes[i].label
-                    simulation_state.kinetics[j].id = graph.nodes[i].id
-                    if(graph.nodes[i].weight == 0):
-                        simulation_state.kinetics[j].temperature = T  #default
-                    else:
-                        simulation_state.kinetics[j].temperature = graph.nodes[i].weight
-                    j += 1
+                simulation_state.kinetics.add()
+                simulation_state.kinetics[j].label = graph.nodes[i].label
+                simulation_state.kinetics[j].id = graph.nodes[i].id
+                simulation_state.kinetics[j].temperature = T  #default
+                j += 1
         if(len(simulation_state.kinetics) > j): #delete extra kinetics objects
             for i in range(len(simulation_state.kinetics) - j):
                 del simulation_state.kinetics[-1]
@@ -84,15 +74,15 @@ class Simulation:
                 return simulation_state
 
         simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
-        edge_list_in, edge_list_out = self.edge_list(graph) 
+        edge_list_in, edge_list_out = self.edge_list(graph)
 
         if(self.reactor_number != len(simulation_state.kinetics)):  #reset simulation when no of reactors change
             self.reactor_number = len(simulation_state.kinetics)
             self.start_time = simulation_state.time
-        
+
         R = 8.314      # Universal gas constant (kJ/kmol K)
         P = 1          # Pressure (atm)
-        
+
         conc0 = self.molar_feed_rate / self.volumetric_feed_rates  # mol/dm3
         #tau = self.reactor_volume / self.volumetric_feed_rates[0]      # seconds
 
@@ -100,9 +90,16 @@ class Simulation:
             '''Interpolate through known values of activation energy and return activation energy corresponding to temperature T'''
             temp = [298, 348, 398, 443, 448, 498, 548, 598, 648, 698, 748, 798, 848, 898, 948, 998]
             e_act = [20.25, 21.87, 24.01, 25, 26.69, 29.96, 33.85, 38.41, 43.66, 49.65, 56.41, 63.98, 72.4, 81.71, 91.94, 103.13]
-            #kJ/kmol, yet to use a model to calc e_act as per reaction 
+            #kJ/kmol, yet to use a model to calc e_act as per reaction
             e_act1 = np.interp(T, temp, e_act)
             return e_act1
+
+        def calc_conc(initial_conc, reactor_type, i, k_eq, k):
+            if(reactor_type == 'CSTR'):
+                conc_limiting = self.cstr(initial_conc, self.time, i, k_eq = k_eq, k = k)
+            elif(reactor_type == 'PFR'):
+                conc_limiting = self.pfr(initial_conc, self.time, k_eq = k_eq, k = k)
+            return conc_limiting
 
         self.time = simulation_state.time - self.start_time
         conc_out, reactor_type, conc_limiting = {}, {}, {}
@@ -110,24 +107,17 @@ class Simulation:
         for i in range(len(simulation_state.kinetics)):
             if(simulation_state.kinetics[i].label == 'source'):
                 conc_out[simulation_state.kinetics[i].id] = [conc0[0]]
-            else:    
+            else:
                 conc_out[simulation_state.kinetics[i].id] = []      #record concentration coming out of the reactors
             reactor_type[simulation_state.kinetics[i].id] = simulation_state.kinetics[i].label
-            conc_limiting[simulation_state.kinetics[i].id] = []     
+            conc_limiting[simulation_state.kinetics[i].id] = []
 
         for i in range(len(simulation_state.kinetics)):
             T = simulation_state.kinetics[i].temperature
             e_act = find_activation_energy(T)
             k_eq = 100000 * math.e ** (-33.78*(T-298)/T)    #equilibrium constant
             k = math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
-            if(len(edge_list_in[i]) == 1):
-                conc_limiting[i] = calc_conc(conc_out[edge_list_in[i]], reactor_type[i], simulation_state.kinetics[i].id, k_eq, k)
-            else:
-                sum_conc, vol = 0, 0
-                for j in edge_list_in[i]:
-                    sum_conc += conc_out[j] * self.volumetric_feed_rates[i]
-                    vol += self.volumetric_feed_rates[i]
-                conc_limiting[i] = calc_conc(sum_conc/vol, reactor_type[i], simulation_state.kinetics[i].id, k_eq, k)
+            conc_limiting[i] = calc_conc(conc_out[edge_list_in[i]], reactor_type[i], simulation_state.kinetics[i].id, k_eq, k)
 
             conc = [conc_limiting[i], conc_limiting[i], conc0[0] - conc_limiting[i], conc0[0] - conc_limiting[i]]
             conc_out[i] = conc_limiting[i]
@@ -140,17 +130,10 @@ class Simulation:
                 simulation_state.kinetics[i].mole_fraction[j] = conc[j]
         return simulation_state
 
-        def calc_conc(initial_conc, reactor_type, i, k_eq, k):
-            if(reactor_type == 'CSTR'):
-                conc_limiting = self.cstr(initial_conc, self.time, i, k_eq = k_eq, k = k)
-            elif(reactor_type == 'PFR'):
-                conc_limiting = self.pfr(initial_conc, self.time, k_eq = k_eq, k = k)
-            return conc_limiting
-
 
     def cstr(self, initial_conc, i, t, k_eq = 5, k = 0.1):
         '''Calculates concentrations for a first order reaction in a CSTR.
-        
+
         Parameters
         ----------
         initial_conc : float
@@ -161,7 +144,7 @@ class Simulation:
             Denotes equilibrium concentration of the reaction
         k : float
             Denotes the reaction constant for the reaction
-        
+
         Returns
         -------
         float
