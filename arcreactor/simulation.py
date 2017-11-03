@@ -42,6 +42,7 @@ class Simulation:
     def add_delete_protobuf_objects(self, simulation_state, graph):
         '''Add and delete kinetics objects from the kinetics protobuf, and assign id, label, and temperature to new objects'''
         j = 0       #for keeping a count of simulation_state.kinetics objects
+        T = 423
         for i in range(len(graph.nodes)):
             if(graph.nodes[i].label == 'source'):
                 continue
@@ -51,13 +52,19 @@ class Simulation:
                 if(simulation_state.kinetics[j] is True):
                     simulation_state.kinetics[j].label = graph.nodes[i].label
                     simulation_state.kinetics[j].id = graph.nodes[i].id
-                    simulation_state.kinetics[j].temperature = graph.nodes[i].weight
+                    if(graph.nodes[i].weight == 0):
+                        simulation_state.kinetics[j].temperature = T  #default
+                    else:
+                        simulation_state.kinetics[j].temperature = graph.nodes[i].weight
                     j += 1
                 else:
                     simulation_state.kinetics.add()
                     simulation_state.kinetics[j].label = graph.nodes[i].label
                     simulation_state.kinetics[j].id = graph.nodes[i].id
-                    simulation_state.kinetics[j].temperature = graph.nodes[i].weight
+                    if(graph.nodes[i].weight == 0):
+                        simulation_state.kinetics[j].temperature = T  #default
+                    else:
+                        simulation_state.kinetics[j].temperature = graph.nodes[i].weight
                     j += 1
         if(len(simulation_state.kinetics) > j): #delete extra kinetics objects
             for i in range(len(simulation_state.kinetics) - j):
@@ -84,7 +91,6 @@ class Simulation:
             self.start_time = simulation_state.time
         
         R = 8.314      # Universal gas constant (kJ/kmol K)
-        T = 298        # Temperature (K)
         P = 1          # Pressure (atm)
         
         conc0 = self.molar_feed_rate / self.volumetric_feed_rates  # mol/dm3
