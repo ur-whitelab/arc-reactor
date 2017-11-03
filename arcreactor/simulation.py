@@ -108,7 +108,7 @@ class Simulation:
         conc_out, reactor_type, conc_limiting = {}, {}, {}
 
         for i in range(len(simulation_state.kinetics)):
-            if(i == 1):
+            if(simulation_state.kinetics[i].label == 'source'):
                 conc_out[simulation_state.kinetics[i].id] = [conc0[0]]
             else:    
                 conc_out[simulation_state.kinetics[i].id] = []      #record concentration coming out of the reactors
