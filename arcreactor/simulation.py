@@ -33,32 +33,40 @@ class Simulation:
 
         if(len(vision_state.edges) > 0):
             for j in range(len(vision_state.edges)):
-                edge_list_out[vision_state.edges[j].idA] = []
-                edge_list_in[vision_state.edges[j].idB] = []
+                #should already be allocated?
+                if vision_state.edges[j].idA not in edge_list_out:
+                    edge_list_out[vision_state.edges[j].idA] = []
+                if vision_state.edges[j].idB not in edge_list_in:
+                    edge_list_in[vision_state.edges[j].idB] = []
+
                 edge_list_out[vision_state.edges[j].idA].append(vision_state.edges[j].idB)
                 edge_list_in[vision_state.edges[j].idB].append(vision_state.edges[j].idA)
-
+        #print(edge_list_in)
         return edge_list_in, edge_list_out
 
 
     def add_delete_protobuf_objects(self, simulation_state, graph):
         '''Add and delete kinetics objects from the kinetics protobuf, and assign id, label, and temperature to new objects'''
-        j = 0       #for keeping a count of simulation_state.kinetics objects
+        #j = 0       #for keeping a count of simulation_state.kinetics objects
         T = 423
+        #delete the whole list
+        for i in range(len(simulation_state.kinetics)):
+            del simulation_state.kinetics[-1]
+
         for i in range(len(graph.nodes)):
             if(graph.nodes[i].label == 'source'):
-                continue
+                simulation_state.kinetics.add()
+                simulation_state.kinetics[i].id = 0
+                simulation_state.kinetics[i].label = 'source'#Unity is seeing a kinetics object with ID 0 for some reason...
             if(graph.nodes[i].delete is True):
-                continue
+                simulation_state.kinetics.add()#empty placeholders
             else:
                 simulation_state.kinetics.add()
-                simulation_state.kinetics[j].label = graph.nodes[i].label
-                simulation_state.kinetics[j].id = graph.nodes[i].id
-                simulation_state.kinetics[j].temperature = T  #default
-                j += 1
-        if(len(simulation_state.kinetics) > j): #delete extra kinetics objects
-            for i in range(len(simulation_state.kinetics) - j):
-                del simulation_state.kinetics[-1]
+                simulation_state.kinetics[i].label = graph.nodes[i].label
+                print(graph.nodes[i].label)
+                simulation_state.kinetics[i].id = graph.nodes[i].id
+                simulation_state.kinetics[i].temperature = T  #default
+                #j += 1
         return simulation_state
 
 
@@ -95,39 +103,45 @@ class Simulation:
             return e_act1
 
         def calc_conc(initial_conc, reactor_type, i, k_eq, k):
-            if(reactor_type == 'CSTR'):
+            if(reactor_type == 'cstr'):
                 conc_limiting = self.cstr(initial_conc, self.time, i, k_eq = k_eq, k = k)
-            elif(reactor_type == 'PFR'):
+            elif(reactor_type == 'pfr'):
                 conc_limiting = self.pfr(initial_conc, self.time, k_eq = k_eq, k = k)
+            else:
+                conc_limiting = conc0[0]
+            #print(conc_limiting)
             return conc_limiting
 
         self.time = simulation_state.time - self.start_time
         conc_out, reactor_type, conc_limiting = {}, {}, {}
 
         for i in range(len(simulation_state.kinetics)):
-            if(simulation_state.kinetics[i].label == 'source'):
-                conc_out[simulation_state.kinetics[i].id] = [conc0[0]]
-            else:
-                conc_out[simulation_state.kinetics[i].id] = []      #record concentration coming out of the reactors
+            conc_out[simulation_state.kinetics[i].id] = [conc0[0]]
+            #record concentration coming out of the reactors
             reactor_type[simulation_state.kinetics[i].id] = simulation_state.kinetics[i].label
-            conc_limiting[simulation_state.kinetics[i].id] = []
 
-        for i in range(len(simulation_state.kinetics)):
-            T = simulation_state.kinetics[i].temperature
-            e_act = find_activation_energy(T)
-            k_eq = 100000 * math.e ** (-33.78*(T-298)/T)    #equilibrium constant
-            k = math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
-            conc_limiting[i] = calc_conc(conc_out[edge_list_in[i]], reactor_type[i], simulation_state.kinetics[i].id, k_eq, k)
 
-            conc = [conc_limiting[i], conc_limiting[i], conc0[0] - conc_limiting[i], conc0[0] - conc_limiting[i]]
-            conc_out[i] = conc_limiting[i]
-            #conc is the list of lists of concentrations of chemical species. It's length is the number of reactors.
-            simulation_state.kinetics[i].temperature = T
-            simulation_state.kinetics[i].pressure = P
-            while(len(simulation_state.kinetics[i].mole_fraction) < len(conc[i])):
-                simulation_state.kinetics[i].mole_fraction.append(float(0))
-            for j in range(len(conc)):
-                simulation_state.kinetics[i].mole_fraction[j] = conc[j]
+        for kinetics in simulation_state.kinetics:
+            i = kinetics.id
+            if(kinetics.temperature != 0):
+                T = kinetics.temperature
+                e_act = 25  #kJ/kmol
+                k_eq = 100000 * math.e ** (-33.78*(T-298)/T)    #equilibrium constant
+                k = math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
+                #find the limiting concentration for the ith reactor
+                conc_limiting = calc_conc(sum([conc_out[id] for id in edge_list_in[i]]), kinetics.label, kinetics.id, k_eq, k)
+                print("Conc limiting is",conc_limiting)
+
+                conc = [conc_limiting, conc_limiting, conc0[0] - conc_limiting, conc0[0] - conc_limiting]
+                conc_out[kinetics.id] = conc_limiting
+                #conc is the list of lists of concentrations of chemical species. It's length is the number of reactors.
+                kinetics.temperature = T
+                kinetics.pressure = P
+                while(len(kinetics.mole_fraction) < len(conc)):
+                    kinetics.mole_fraction.append(float(0))
+                for j in range(len(conc)):
+                    kinetics.mole_fraction[j] = conc[j]
+                print(kinetics.mole_fraction)
         return simulation_state
 
 
@@ -150,18 +164,18 @@ class Simulation:
         float
             Final concentration of the limiting reactor when it leaves the reactor
         '''
-        def rate(conv, t):
-            return -k* initial_conc * (1 - (1 + 1/k_eq)*conv)
+        #def rate(conv, t):
+        #   return -k* initial_conc * (1 - (1 + 1/k_eq)*conv)
 
-        if(i==1):       #CSTR is a steady state reactor, but over a long time we'd get a constant value
-            conv = si.odeint(rate, 0.0001, np.arange(0, 3600, 3600*25))
-            out_conc_lr = initial_conc * (1 - conv[int(t)])
-        else:
-            rv = 20 #m3
-            fa0 = 1 #mol/s
-            v0 = 10 #m3/s
-            conversion = rv*k*initial_conc/(fa0+k*rv*initial_conc+(k*rv*initial_conc)/k_eq)
-            out_conc_lr = initial_conc*(1 - conversion)
+        #if(i==1):       #CSTR is a steady state reactor, but over a long time we'd get a constant value
+        #    conv = si.odeint(rate, 0.0001, np.arange(0, 3600, 3600*25))
+        #    out_conc_lr = initial_conc * (1 - conv[int(t)])
+        #else:
+        rv = 20 #m3
+        fa0 = 1 #mol/s
+        v0 = 10 #m3/s
+        conversion = rv*k*initial_conc/(fa0+k*rv*initial_conc+(k*rv*initial_conc)/k_eq)
+        out_conc_lr = initial_conc*(1 - conversion)
         return out_conc_lr
 
     def pfr(self, initial_conc, t, k_eq = 5, k = 0.1):

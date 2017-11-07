@@ -42,7 +42,7 @@ _NODE = _descriptor.Descriptor(
     _descriptor.FieldDescriptor(
       name='label', full_name='graphs.Node.label', index=1,
       number=2, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
+      has_default_value=False, default_value=_b("rgea").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
