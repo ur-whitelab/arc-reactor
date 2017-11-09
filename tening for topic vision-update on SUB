@@ -1,0 +1,123 @@
+[1mdiff --git a/arcreactor/controller.py b/arcreactor/controller.py[m
+[1mindex 4bc9919..c87b55a 100644[m
+[1m--- a/arcreactor/controller.py[m
+[1m+++ b/arcreactor/controller.py[m
+[36m@@ -10,6 +10,7 @@[m [mfrom protobufs.kinetics_pb2 import SystemKinetics[m
+ from analysis import Analyzer[m
+ from simulation import Simulation[m
+ [m
+[32m+[m[32mimport copy[m
+ zmq.asyncio.install()[m
+ [m
+ class Controller:[m
+[36m@@ -54,11 +55,13 @@[m [mclass Controller:[m
+ [m
+     async def update_simulation(self):[m
+         '''Update simulation every time a message is received from vision'''[m
+[32m+[m
+         if self.simulator.start_time == 0:[m
+             self.simulator.start_time = self.graph.time[m
+         self.simulation_state.time = self.graph.time[m
+[31m-        self.simulation_state = self.simulator.calculate(self.simulation_state, self.graph)[m
+[31m-        print('Called calculate() in update_simulation(). Now self.simulation_state is {}'.format(self.simulation_state))[m
+[32m+[m[32m        new_graph = copy.copy(self.graph)[m
+[32m+[m[32m        self.simulation_state = self.simulator.calculate(self.simulation_state, new_graph)[m
+[32m+[m[32m        #print('Called calculate() in update_simulation(). Now self.simulation_state is {}'.format(self.simulation_state))[m
+         #print('and self.graph was {}'.format(self.graph))[m
+         await asyncio.sleep(0)[m
+         return self.simulation_state[m
+[1mdiff --git a/arcreactor/simulation.py b/arcreactor/simulation.py[m
+[1mindex 50669bb..7fbd118 100644[m
+[1m--- a/arcreactor/simulation.py[m
+[1m+++ b/arcreactor/simulation.py[m
+[36m@@ -27,21 +27,21 @@[m [mclass Simulation:[m
+         edge_list_in = {}[m
+         edge_list_out = {}[m
+ [m
+[31m-        #for i in range(len(graph.nodes)):[m
+[31m-        #    edge_list_in[graph.nodes[i].id] = [][m
+[31m-        #    edge_list_out[graph.nodes[i].id] = [][m
+[32m+[m[32m        for i in range(len(graph.nodes)):[m
+[32m+[m[32m            edge_list_in[graph.nodes[i].id] = [][m
+[32m+[m[32m            edge_list_out[graph.nodes[i].id] = [][m
+ [m
+         if(len(graph.edges) > 0):[m
+             for i in range(len(graph.edges)):[m
+                 #should already be allocated?[m
+                 if graph.edges[i].idA not in edge_list_out:[m
+                     edge_list_out[graph.edges[i].idA] = [][m
+[31m-                if graph.edges[i].idA not in edge_list_in:[m
+[31m-                    edge_list_in[graph.edges[i].idA] = [][m
+[32m+[m[32m                #if graph.edges[i].idA not in edge_list_in:[m
+[32m+[m[32m                #    edge_list_in[graph.edges[i].idA] = [][m
+                 if graph.edges[i].idB not in edge_list_in:[m
+                     edge_list_in[graph.edges[i].idB] = [][m
+[31m-                if graph.edges[i].idB not in edge_list_out:[m
+[31m-                    edge_list_out[graph.edges[i].idB] = [][m
+[32m+[m[32m                #if graph.edges[i].idB not in edge_list_out:[m
+[32m+[m[32m                #    edge_list_out[graph.edges[i].idB] = [][m
+ [m
+                 edge_list_out[graph.edges[i].idA].append(graph.edges[i].idB)[m
+                 edge_list_in[graph.edges[i].idB].append(graph.edges[i].idA)[m
+[36m@@ -55,10 +55,7 @@[m [mclass Simulation:[m
+         #delete the whole list each time and create a new one[m
+         for i in range(len(simulation_state.kinetics)):[m
+             del simulation_state.kinetics[-1][m
+[31m-        simulation_state.kinetics.add()[m
+[31m-        simulation_state.kinetics[0].id = 0[m
+[31m-        simulation_state.kinetics[0].label = 'source' #Unity is seeing a kinetics object with ID 0 for some reason...[m
+[31m-        for i in range(1,len(graph.nodes)+1):[m
+[32m+[m[32m        for i in range(len(graph.nodes)):[m
+             if(graph.nodes[i].delete):[m
+                 simulation_state.kinetics.add() #empty placeholders[m
+             elif(graph.nodes[i].id != 999): #non-source non-empty non-conditions nodes[m
+[36m@@ -67,6 +64,9 @@[m [mclass Simulation:[m
+                 print('the label for this node is {} and its id is {}'.format(graph.nodes[i].label, graph.nodes[i].id))#this ID is coming out as 0. Why?[m
+                 simulation_state.kinetics[i].id = graph.nodes[i].id[m
+                 simulation_state.kinetics[i].temperature = T  #default[m
+[32m+[m[32m        simulation_state.kinetics.add()[m
+[32m+[m[32m        simulation_state.kinetics[0].id = 0[m
+[32m+[m[32m        simulation_state.kinetics[0].label = 'source' #Unity is seeing a kinetics object with ID 0 for some reason...[m
+         return simulation_state[m
+ [m
+ [m
+[36m@@ -83,7 +83,7 @@[m [mclass Simulation:[m
+ [m
+     def calculate(self, simulation_state, graph):[m
+         '''The actual simulation for number of objects specified by the protobuf '''[m
+[31m-        graph = graph # update the graph object when we get it (see controller.py)[m
+[32m+[m[32m        #graph = graph # update the graph object when we get it (see controller.py)[m
+         if(len(graph.edges) == 0 or len(graph.nodes) == 0): #check if there are any nodes and edges[m
+             return simulation_state[m
+         connected_to_source = False[m
+[36m@@ -126,6 +126,7 @@[m [mclass Simulation:[m
+             reactor_type[kinetics.id] = kinetics.label[m
+ [m
+         print('simulation_state.kinetics is {}'.format(simulation_state.kinetics))[m
+[32m+[m[32m        print('the keys for conc_out are {}, and the keys for edge_list_in are {}, and for edge_list_out they are {}'.format(conc_out.keys(), edge_list_in.keys(), edge_list_out.keys()))[m
+         for kinetics in simulation_state.kinetics:[m
+             i = kinetics.id[m
+             if(kinetics.temperature != 0):[m
+[36m@@ -135,10 +136,10 @@[m [mclass Simulation:[m
+                 k = math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added[m
+                 #find the limiting concentration for the ith reactor[m
+                 conc_limiting = self.calc_conc(sum([conc_out[idx] for idx in edge_list_in[i]]), kinetics.label, kinetics.id, k_eq, k)[m
+[31m-                print('Conc limiting is {}'.format(conc_limiting))[m
+[32m+[m[32m                #print('Conc limiting is {}'.format(conc_limiting))[m
+ [m
+                 conc = [conc_limiting, conc_limiting, (conc0[0] - conc_limiting), (conc0[0] - conc_limiting)][m
+[31m-                print('conc is {}'.format(conc))[m
+[32m+[m[32m                #print('conc is {}'.format(conc))[m
+                 conc_out[kinetics.id] = conc_limiting[m
+                 #conc is the list of lists of concentrations of chemical species. It's length is the number of reactors.[m
+                 kinetics.temperature = T[m
+[36m@@ -148,7 +149,8 @@[m [mclass Simulation:[m
+                     kinetics.mole_fraction.append(float(0))[m
+                 for j in range(len(conc)):[m
+                     kinetics.mole_fraction[j] = float(conc[j])[m
+[31m-                print('kinetics is {}'.format(kinetics))[m
+[32m+[m[32m                if(simulation_state.time %5 == 0):[m
+[32m+[m[32m                    print('The {}th kinetics is {}'.format(i, kinetics))[m
+ [m
+         return simulation_state[m
+ [m

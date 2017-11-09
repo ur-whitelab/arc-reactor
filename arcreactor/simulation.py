@@ -27,21 +27,21 @@ class Simulation:
         edge_list_in = {}
         edge_list_out = {}
 
-        #for i in range(len(graph.nodes)):
-        #    edge_list_in[graph.nodes[i].id] = []
-        #    edge_list_out[graph.nodes[i].id] = []
+        for i in range(len(graph.nodes)):
+            edge_list_in[graph.nodes[i].id] = []
+            edge_list_out[graph.nodes[i].id] = []
 
         if(len(graph.edges) > 0):
             for i in range(len(graph.edges)):
                 #should already be allocated?
                 if graph.edges[i].idA not in edge_list_out:
                     edge_list_out[graph.edges[i].idA] = []
-                if graph.edges[i].idA not in edge_list_in:
-                    edge_list_in[graph.edges[i].idA] = []
+                #if graph.edges[i].idA not in edge_list_in:
+                #    edge_list_in[graph.edges[i].idA] = []
                 if graph.edges[i].idB not in edge_list_in:
                     edge_list_in[graph.edges[i].idB] = []
-                if graph.edges[i].idB not in edge_list_out:
-                    edge_list_out[graph.edges[i].idB] = []
+                #if graph.edges[i].idB not in edge_list_out:
+                #    edge_list_out[graph.edges[i].idB] = []
 
                 edge_list_out[graph.edges[i].idA].append(graph.edges[i].idB)
                 edge_list_in[graph.edges[i].idB].append(graph.edges[i].idA)
@@ -55,10 +55,7 @@ class Simulation:
         #delete the whole list each time and create a new one
         for i in range(len(simulation_state.kinetics)):
             del simulation_state.kinetics[-1]
-        simulation_state.kinetics.add()
-        simulation_state.kinetics[0].id = 0
-        simulation_state.kinetics[0].label = 'source' #Unity is seeing a kinetics object with ID 0 for some reason...
-        for i in range(1,len(graph.nodes)+1):
+        for i in range(len(graph.nodes)):
             if(graph.nodes[i].delete):
                 simulation_state.kinetics.add() #empty placeholders
             elif(graph.nodes[i].id != 999): #non-source non-empty non-conditions nodes
@@ -67,6 +64,9 @@ class Simulation:
                 print('the label for this node is {} and its id is {}'.format(graph.nodes[i].label, graph.nodes[i].id))#this ID is coming out as 0. Why?
                 simulation_state.kinetics[i].id = graph.nodes[i].id
                 simulation_state.kinetics[i].temperature = T  #default
+        simulation_state.kinetics.add()
+        simulation_state.kinetics[0].id = 0
+        simulation_state.kinetics[0].label = 'source' #Unity is seeing a kinetics object with ID 0 for some reason...
         return simulation_state
 
 
@@ -83,7 +83,7 @@ class Simulation:
 
     def calculate(self, simulation_state, graph):
         '''The actual simulation for number of objects specified by the protobuf '''
-        graph = graph # update the graph object when we get it (see controller.py)
+        #graph = graph # update the graph object when we get it (see controller.py)
         if(len(graph.edges) == 0 or len(graph.nodes) == 0): #check if there are any nodes and edges
             return simulation_state
         connected_to_source = False
@@ -126,6 +126,7 @@ class Simulation:
             reactor_type[kinetics.id] = kinetics.label
 
         print('simulation_state.kinetics is {}'.format(simulation_state.kinetics))
+        print('the keys for conc_out are {}, and the keys for edge_list_in are {}, and for edge_list_out they are {}'.format(conc_out.keys(), edge_list_in.keys(), edge_list_out.keys()))
         for kinetics in simulation_state.kinetics:
             i = kinetics.id
             if(kinetics.temperature != 0):
@@ -135,10 +136,10 @@ class Simulation:
                 k = math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
                 #find the limiting concentration for the ith reactor
                 conc_limiting = self.calc_conc(sum([conc_out[idx] for idx in edge_list_in[i]]), kinetics.label, kinetics.id, k_eq, k)
-                print('Conc limiting is {}'.format(conc_limiting))
+                #print('Conc limiting is {}'.format(conc_limiting))
 
                 conc = [conc_limiting, conc_limiting, (conc0[0] - conc_limiting), (conc0[0] - conc_limiting)]
-                print('conc is {}'.format(conc))
+                #print('conc is {}'.format(conc))
                 conc_out[kinetics.id] = conc_limiting
                 #conc is the list of lists of concentrations of chemical species. It's length is the number of reactors.
                 kinetics.temperature = T
@@ -148,7 +149,8 @@ class Simulation:
                     kinetics.mole_fraction.append(float(0))
                 for j in range(len(conc)):
                     kinetics.mole_fraction[j] = float(conc[j])
-                print('kinetics is {}'.format(kinetics))
+                if(simulation_state.time %5 == 0):
+                    print('The {}th kinetics is {}'.format(i, kinetics))
 
         return simulation_state
 

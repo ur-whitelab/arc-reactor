@@ -10,6 +10,7 @@ from protobufs.kinetics_pb2 import SystemKinetics
 from analysis import Analyzer
 from simulation import Simulation
 
+import copy
 zmq.asyncio.install()
 
 class Controller:
@@ -54,11 +55,13 @@ class Controller:
 
     async def update_simulation(self):
         '''Update simulation every time a message is received from vision'''
+
         if self.simulator.start_time == 0:
             self.simulator.start_time = self.graph.time
         self.simulation_state.time = self.graph.time
-        self.simulation_state = self.simulator.calculate(self.simulation_state, self.graph)
-        print('Called calculate() in update_simulation(). Now self.simulation_state is {}'.format(self.simulation_state))
+        new_graph = copy.copy(self.graph)
+        self.simulation_state = self.simulator.calculate(self.simulation_state, new_graph)
+        #print('Called calculate() in update_simulation(). Now self.simulation_state is {}'.format(self.simulation_state))
         #print('and self.graph was {}'.format(self.graph))
         await asyncio.sleep(0)
         return self.simulation_state
