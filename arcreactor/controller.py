@@ -25,7 +25,7 @@ class Controller:
         #we only want vision updates
         sub_topic = 'vision-update'
         print('listening for topic: {} on SUB'.format(sub_topic))
-        self.vision_sock.subscribe(sub_topic.encode())
+        self.vision_sock.subscribe(sub_topic)
 
         #register publishing socket
         zmq_uri = 'tcp://{}:{}'.format(cc_hostname, zmq_pub_port)
@@ -33,12 +33,12 @@ class Controller:
         self.pub_sock = self.ctx.socket(zmq.PUB)
         self.pub_sock.connect(zmq_uri)
 
-        self.simulator = Simulation(0)
         self.analyzer = Analyzer()
         self.frequency = 1
         self.stream_names = self.analyzer.stream_names
 
         self.graph = Graph()
+        self.simulator = Simulation(0)
         self.simulation_state = SystemKinetics()
 
     async def handle_start(self,server_port):
@@ -58,6 +58,8 @@ class Controller:
             self.simulator.start_time = self.graph.time
         self.simulation_state.time = self.graph.time
         self.simulation_state = self.simulator.calculate(self.simulation_state, self.graph)
+        print('Called calculate() in update_simulation(). Now self.simulation_state is {}'.format(self.simulation_state))
+        #print('and self.graph was {}'.format(self.graph))
         await asyncio.sleep(0)
         return self.simulation_state
 

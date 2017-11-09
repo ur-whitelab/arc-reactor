@@ -17,69 +17,83 @@ class Simulation:
         #For demo purposes, the values are fixed
         self.reactor_number = 0
         self.reactor_volume = 20            # m3
-        self.volumetric_feed_rates = np.asarray([10, 10])     # m3/s
-        self.molar_feed_rate = np.asarray([1, 1])           # mol/s
+        self.volumetric_feed_rates = np.array([10, 10])     # m3/s
+        self.molar_feed_rate = np.array([1, 1])           # mol/s
         self.start_time = start_time
         self.time = 0
 
-    def edge_list(self, vision_state):
+    def edge_list(self, graph):
         ''' Reads labels from the vision protobuf and makes two dictionaries which record inward and outward connections respectively of reactors'''
         edge_list_in = {}
         edge_list_out = {}
 
-        for i in range(len(vision_state.nodes)):
-            edge_list_in[vision_state.nodes[i].id] = []
-            edge_list_out[vision_state.nodes[i].id] = []
+        #for i in range(len(graph.nodes)):
+        #    edge_list_in[graph.nodes[i].id] = []
+        #    edge_list_out[graph.nodes[i].id] = []
 
-        if(len(vision_state.edges) > 0):
-            for j in range(len(vision_state.edges)):
+        if(len(graph.edges) > 0):
+            for i in range(len(graph.edges)):
                 #should already be allocated?
-                if vision_state.edges[j].idA not in edge_list_out:
-                    edge_list_out[vision_state.edges[j].idA] = []
-                if vision_state.edges[j].idB not in edge_list_in:
-                    edge_list_in[vision_state.edges[j].idB] = []
+                if graph.edges[i].idA not in edge_list_out:
+                    edge_list_out[graph.edges[i].idA] = []
+                if graph.edges[i].idA not in edge_list_in:
+                    edge_list_in[graph.edges[i].idA] = []
+                if graph.edges[i].idB not in edge_list_in:
+                    edge_list_in[graph.edges[i].idB] = []
+                if graph.edges[i].idB not in edge_list_out:
+                    edge_list_out[graph.edges[i].idB] = []
 
-                edge_list_out[vision_state.edges[j].idA].append(vision_state.edges[j].idB)
-                edge_list_in[vision_state.edges[j].idB].append(vision_state.edges[j].idA)
+                edge_list_out[graph.edges[i].idA].append(graph.edges[i].idB)
+                edge_list_in[graph.edges[i].idB].append(graph.edges[i].idA)
         #print(edge_list_in)
         return edge_list_in, edge_list_out
 
 
     def add_delete_protobuf_objects(self, simulation_state, graph):
         '''Add and delete kinetics objects from the kinetics protobuf, and assign id, label, and temperature to new objects'''
-        #j = 0       #for keeping a count of simulation_state.kinetics objects
         T = 423
-        #delete the whole list
+        #delete the whole list each time and create a new one
         for i in range(len(simulation_state.kinetics)):
             del simulation_state.kinetics[-1]
-
-        for i in range(len(graph.nodes)):
-            if(graph.nodes[i].label == 'source'):
-                simulation_state.kinetics.add()
-                simulation_state.kinetics[i].id = 0
-                simulation_state.kinetics[i].label = 'source'#Unity is seeing a kinetics object with ID 0 for some reason...
-            if(graph.nodes[i].delete is True):
-                simulation_state.kinetics.add()#empty placeholders
-            else:
+        simulation_state.kinetics.add()
+        simulation_state.kinetics[0].id = 0
+        simulation_state.kinetics[0].label = 'source' #Unity is seeing a kinetics object with ID 0 for some reason...
+        for i in range(1,len(graph.nodes)+1):
+            if(graph.nodes[i].delete):
+                simulation_state.kinetics.add() #empty placeholders
+            elif(graph.nodes[i].id != 999): #non-source non-empty non-conditions nodes
                 simulation_state.kinetics.add()
                 simulation_state.kinetics[i].label = graph.nodes[i].label
-                print(graph.nodes[i].label)
+                print('the label for this node is {} and its id is {}'.format(graph.nodes[i].label, graph.nodes[i].id))#this ID is coming out as 0. Why?
                 simulation_state.kinetics[i].id = graph.nodes[i].id
                 simulation_state.kinetics[i].temperature = T  #default
-                #j += 1
         return simulation_state
 
 
+    def calc_conc(self, initial_conc, reactor_type, i, k_eq, k):
+        conc0 = self.molar_feed_rate / self.volumetric_feed_rates
+        if(reactor_type == 'cstr'):
+            conc_limiting = self.cstr(initial_conc, self.time, i, k_eq = k_eq, k = k)
+        elif(reactor_type == 'pfr'):
+            conc_limiting = self.pfr(initial_conc, self.time, k_eq = k_eq, k = k)
+        else:
+            conc_limiting = conc0[0]
+        #print(conc_limiting)
+        return conc_limiting
+
     def calculate(self, simulation_state, graph):
         '''The actual simulation for number of objects specified by the protobuf '''
-
+        graph = graph # update the graph object when we get it (see controller.py)
         if(len(graph.edges) == 0 or len(graph.nodes) == 0): #check if there are any nodes and edges
             return simulation_state
+        connected_to_source = False
         for i in range(len(graph.edges)):   #start simulation only if one of the reactors is connected to the source
             if(graph.edges[i].labelA == 'source'):
-                break
-            else:
-                return simulation_state
+                print('CONNECTED TO SOURCE')
+                connected_to_source = True
+        if(not connected_to_source):
+            print('NOT CONNECTED TO SOURCE')
+            return simulation_state
 
         simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
         edge_list_in, edge_list_out = self.edge_list(graph)
@@ -102,25 +116,16 @@ class Simulation:
             e_act1 = np.interp(T, temp, e_act)
             return e_act1
 
-        def calc_conc(initial_conc, reactor_type, i, k_eq, k):
-            if(reactor_type == 'cstr'):
-                conc_limiting = self.cstr(initial_conc, self.time, i, k_eq = k_eq, k = k)
-            elif(reactor_type == 'pfr'):
-                conc_limiting = self.pfr(initial_conc, self.time, k_eq = k_eq, k = k)
-            else:
-                conc_limiting = conc0[0]
-            #print(conc_limiting)
-            return conc_limiting
 
         self.time = simulation_state.time - self.start_time
-        conc_out, reactor_type, conc_limiting = {}, {}, {}
+        conc_out, reactor_type, conc_limiting = {0:conc0[0]}, {}, {}
 
-        for i in range(len(simulation_state.kinetics)):
-            conc_out[simulation_state.kinetics[i].id] = [conc0[0]]
+        for kinetics in simulation_state.kinetics:
+            conc_out[kinetics.id] = conc0[0]
             #record concentration coming out of the reactors
-            reactor_type[simulation_state.kinetics[i].id] = simulation_state.kinetics[i].label
+            reactor_type[kinetics.id] = kinetics.label
 
-
+        print('simulation_state.kinetics is {}'.format(simulation_state.kinetics))
         for kinetics in simulation_state.kinetics:
             i = kinetics.id
             if(kinetics.temperature != 0):
@@ -129,19 +134,22 @@ class Simulation:
                 k_eq = 100000 * math.e ** (-33.78*(T-298)/T)    #equilibrium constant
                 k = math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
                 #find the limiting concentration for the ith reactor
-                conc_limiting = calc_conc(sum([conc_out[id] for id in edge_list_in[i]]), kinetics.label, kinetics.id, k_eq, k)
-                print("Conc limiting is",conc_limiting)
+                conc_limiting = self.calc_conc(sum([conc_out[idx] for idx in edge_list_in[i]]), kinetics.label, kinetics.id, k_eq, k)
+                print('Conc limiting is {}'.format(conc_limiting))
 
-                conc = [conc_limiting, conc_limiting, conc0[0] - conc_limiting, conc0[0] - conc_limiting]
+                conc = [conc_limiting, conc_limiting, (conc0[0] - conc_limiting), (conc0[0] - conc_limiting)]
+                print('conc is {}'.format(conc))
                 conc_out[kinetics.id] = conc_limiting
                 #conc is the list of lists of concentrations of chemical species. It's length is the number of reactors.
                 kinetics.temperature = T
                 kinetics.pressure = P
+                j=0
                 while(len(kinetics.mole_fraction) < len(conc)):
                     kinetics.mole_fraction.append(float(0))
                 for j in range(len(conc)):
-                    kinetics.mole_fraction[j] = conc[j]
-                print(kinetics.mole_fraction)
+                    kinetics.mole_fraction[j] = float(conc[j])
+                print('kinetics is {}'.format(kinetics))
+
         return simulation_state
 
 

@@ -28,13 +28,15 @@ class Analyzer:
         Parameters
         ----------
         simulation_state : protobuf object
-                        Protobuf object contains a time stamp and object properties
+                        Contains a time stamp and object properties
 
         Returns
         -------
         callable
                   Callable that retrieves contents of the output file
 
+        '''
+        pass
         '''
         if(len(simulation_state.kinetics) == 0):
             self.reactor_number = 0
@@ -65,3 +67,4 @@ class Analyzer:
             fig.savefig(output, format='jpg')
             plt.clf()
             return output.getvalue()
+            '''
