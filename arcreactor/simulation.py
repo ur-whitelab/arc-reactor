@@ -22,19 +22,33 @@ class Simulation:
         self.start_time = start_time
         self.time = 0
         self.edge_list_in = {}
+        self.connected_to_source = False
 
 
     def update_edge_list(self, graph):
         ''' Reads labels from the vision protobuf and makes two dictionaries which record inward and outward connections respectively of reactors'''
-
+        #TODO: need to fix this so we can re-add reactors and connect them again. Also need to work on ghost edges.
         for key in graph.nodes:
-            if(graph.nodes[key].id not in self.edge_list_in):
-                self.edge_list_in[graph.nodes[key].id] = []#new ID, make a new list for it
+            node = graph.nodes[key]
+            if((node.id not in self.edge_list_in and not node.delete) and (node.id != 999 and node.id != 0)):#don't add for the conditions or source nodes; they never take in
+                self.edge_list_in[node.id] = []#new ID, make a new list for it
+            elif(node.delete):
+                for edgekey in self.edge_list_in:
+                    if(node.id in self.edge_list_in[edgekey]):
+                        self.edge_list_in[edgekey].remove(node.id)
+                    if(edgekey == node.id):
+                        if(0 in self.edge_list_in[node.id]):
+                            self.connected_to_source = False
+                        self.edge_list_in[edgekey] = []#empty it
+
+
 
         for key in graph.edges:
             edge = graph.edges[key]
             if (edge.idB in self.edge_list_in) and (edge.idA not in self.edge_list_in[edge.idB]):#only append if it's a new node to this one
                 self.edge_list_in[edge.idB].append(edge.idA)
+            if(edge.idA == 0):#source
+                self.connected_to_source = True
 
         print('self.edge_list_in is {}\n'.format(self.edge_list_in))
 
@@ -56,21 +70,6 @@ class Simulation:
                     simulation_state.kinetics[-1].temperature = node.weight[0]
                 else:
                     simulation_state.kinetics[-1].temperature = 400  #default
-        # for i in range(len(graph.nodes)):
-        #     #if(graph.nodes[i].delete):
-        #     #    simulation_state.kinetics.add() #empty placeholders
-        #     if(graph.nodes[i].id != 999 and graph.nodes[i].id != 0): #non-source non-empty non-conditions nodes
-        #         simulation_state.kinetics.add()#always just add on to the end
-        #         simulation_state.kinetics[-1].label = graph.nodes[i].label#always get the current last kinetics object
-        #         print('the label for this node is {} and its id is {}'.format(graph.nodes[i].label, graph.nodes[i].id))#this ID is coming out as 0. Why?
-        #         simulation_state.kinetics[-1].id = graph.nodes[i].id
-        #         if (len(graph.nodes[i].weight) > 0):
-        #             simulation_state.kinetics[-1].temperature = graph.nodes[i].weight[0]
-        #         else:
-        #             simulation_state.kinetics[-1].temperature = 300  #default
-        #simulation_state.kinetics.add()
-        #simulation_state.kinetics[0].id = 0
-        #simulation_state.kinetics[0].label = 'source' #Unity is seeing a kinetics object with ID 0 for some reason...
         return simulation_state
 
 
@@ -88,19 +87,15 @@ class Simulation:
     async def calculate(self, simulation_state, graph):
         '''The actual simulation for number of objects specified by the protobuf '''
         #graph = graph # update the graph object when we get it (see controller.py)
+        self.update_edge_list(graph)
         if(len(graph.edges) == 0 or len(graph.nodes) == 0): #check if there are any nodes and edges
             return simulation_state
-        connected_to_source = False
-        for i in range(len(graph.edges)):   #start simulation only if one of the reactors is connected to the source
-            if(graph.edges[i].idA == 0):
-                print('CONNECTED TO SOURCE')
-                connected_to_source = True
-        if(not connected_to_source and simulation_state.time % 20 == 0):
-            print('NOT CONNECTED TO SOURCE')
+        if(not self.connected_to_source ):
+            if( simulation_state.time % 20 == 0):
+                print('NOT CONNECTED TO SOURCE')
             return simulation_state
 
         simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
-        self.update_edge_list(graph)
 
         if(self.reactor_number != len(simulation_state.kinetics)):  #reset simulation when no of reactors change
             self.reactor_number = len(simulation_state.kinetics)
@@ -149,7 +144,7 @@ class Simulation:
                 conc_limiting = self.calc_conc(initial_conc=conc_out_sum, reactor_type=kinetics.label,  k_eq=k_eq, k=k, first=first)
                 #print('Conc limiting is {}'.format(conc_limiting))
 
-                conc = [conc_limiting, conc_limiting, (conc0[0] - conc_limiting), (conc0[0] - conc_limiting)]
+                conc = [conc_limiting, conc_limiting, (conc_out_sum - conc_limiting), (conc_out_sum - conc_limiting)]
                 #print('conc is {}'.format(conc))
                 conc_out[kinetics.id] = conc_limiting
                 #conc is the list of lists of concentrations of chemical species. It's length is the number of reactors.
