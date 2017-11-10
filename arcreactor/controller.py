@@ -60,7 +60,8 @@ class Controller:
             self.simulator.start_time = self.graph.time
         self.simulation_state.time = self.graph.time
         new_graph = copy.copy(self.graph)
-        self.simulation_state = self.simulator.calculate(self.simulation_state, new_graph)
+        new_sim_state = copy.copy(self.simulation_state)
+        self.simulation_state = await self.simulator.calculate(new_sim_state, new_graph)
         #print('Called calculate() in update_simulation(). Now self.simulation_state is {}'.format(self.simulation_state))
         #print('and self.graph was {}'.format(self.graph))
         await asyncio.sleep(0)
