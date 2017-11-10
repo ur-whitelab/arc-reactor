@@ -21,26 +21,23 @@ class Simulation:
         self.molar_feed_rate = np.array([1, 1])           # mol/s
         self.start_time = start_time
         self.time = 0
+        self.edge_list_in = {}
 
-    def edge_list(self, graph):
+
+    def update_edge_list(self, graph):
         ''' Reads labels from the vision protobuf and makes two dictionaries which record inward and outward connections respectively of reactors'''
-        edge_list_in = {}
-        edge_list_out = {}
 
         for key in graph.nodes:
-            edge_list_in[graph.nodes[key].id] = []
-            edge_list_out[graph.nodes[key].id] = []
+            if(graph.nodes[key].id not in self.edge_list_in):
+                self.edge_list_in[graph.nodes[key].id] = []#new ID, make a new list for it
 
         for key in graph.edges:
-            #should already be allocated?
             edge = graph.edges[key]
-            if edge.idB in edge_list_in:
-                edge_list_in[edge.idB].append(edge.idA)
-            if edge.idA in edge_list_out:
-                edge_list_out[edge.idA].append(edge.idB)
+            if (edge.idB in self.edge_list_in) and (edge.idA not in self.edge_list_in[edge.idB]):#only append if it's a new node to this one
+                self.edge_list_in[edge.idB].append(edge.idA)
 
-        print('edge_list_in is {}\n and edge_list_out is {}'.format(edge_list_in, edge_list_out))
-        return edge_list_in, edge_list_out
+        print('self.edge_list_in is {}\n'.format(self.edge_list_in))
+
 
 
     def add_delete_protobuf_objects(self, simulation_state, graph):
@@ -103,7 +100,7 @@ class Simulation:
             return simulation_state
 
         simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
-        edge_list_in, edge_list_out = self.edge_list(graph)
+        self.update_edge_list(graph)
 
         if(self.reactor_number != len(simulation_state.kinetics)):  #reset simulation when no of reactors change
             self.reactor_number = len(simulation_state.kinetics)
@@ -133,7 +130,7 @@ class Simulation:
             reactor_type[kinetics.id] = kinetics.label
 
         print('simulation_state.kinetics is {}'.format(simulation_state.kinetics))
-        print('the keys for conc_out are {}, and the keys for edge_list_in are {}, and for edge_list_out they are {}'.format(conc_out.keys(), edge_list_in.keys(), edge_list_out.keys()))
+        print('the keys for conc_out are {}, and the keys for self.edge_list_in are {}'.format(conc_out.keys(), self.edge_list_in.keys()))
         count = 0
         for kinetics in simulation_state.kinetics:
             i = kinetics.id
@@ -144,9 +141,9 @@ class Simulation:
                 k = math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
                 #find the limiting concentration for the ith reactor
 
-                #conc_limiting = self.calc_conc(sum([conc_out[idx] for idx in edge_list_in[i]]), kinetics.label, kinetics.id, k_eq, k)
+                #conc_limiting = self.calc_conc(sum([conc_out[idx] for idx in self.edge_list_in[i]]), kinetics.label, kinetics.id, k_eq, k)
                 conc_out_sum = 0.0
-                for idx in edge_list_in[i]:
+                for idx in self.edge_list_in[i]:
                     conc_out_sum += conc_out[idx]
                 first = (count == 0)
                 conc_limiting = self.calc_conc(initial_conc=conc_out_sum, reactor_type=kinetics.label,  k_eq=k_eq, k=k, first=first)
@@ -196,8 +193,8 @@ class Simulation:
             rv = 20 #m3
             fa0 = 1 #mol/s
             v0 = 10 #m3/s
-            conversion = rv*k*initial_conc/(fa0+k*rv*initial_conc+(k*rv*initial_conc)/k_eq)
-            out_conc_lr = initial_conc*(1 - conversion)
+            conversion = min(rv*k*initial_conc/(fa0+k*rv*initial_conc+(k*rv*initial_conc)/k_eq), 1.0)
+            out_conc_lr = initial_conc*(1.0 - conversion)
         return out_conc_lr
 
     def pfr(self, initial_conc, t, k_eq = 5, k = 0.1):
@@ -225,6 +222,6 @@ class Simulation:
         rv = 20 #m3
         fa0 = 1 #mol/s
         v0 = 10 #m3/s
-        conversion = si.odeint(rate, 0.0001, np.arange(0, 3600, 3600*25))  # ~25fps
-        out_conc_lr = initial_conc*(1 - conversion[int(t)])
+        conversion = min(si.odeint(rate, 0.0001, np.arange(0, 3600, 3600*25)), 1.0)  # ~25fps
+        out_conc_lr = initial_conc*(1.0 - conversion[int(t)])
         return out_conc_lr
