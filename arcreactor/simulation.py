@@ -4,9 +4,10 @@ import time
 import scipy.integrate as si
 from protobufs.kinetics_pb2 import *
 import math
+import sys
 
 '''
-We consider a psuedo first order reversible chemical reaction which is equilibrium limited.
+We consider a pseudo first order reversible chemical reaction which is equilibrium limited.
 All reactors are equally sized and participants decide the temperature at which they are operated.
 A + B <--> C + D
 '''
@@ -23,11 +24,12 @@ class Simulation:
         self.time = 0
         self.edge_list_in = {}
         self.connected_to_source = False
+        self.conc0 = self.molar_feed_rate[0]/self.volumetric_feed_rates[0]  # mol/dm3
 
 
     def update_edge_list(self, graph):
-        ''' Reads labels from the vision protobuf and makes two dictionaries which record inward and outward connections respectively of reactors'''
-        #TODO: need to fix this so we can re-add reactors and connect them again. Also need to work on ghost edges.
+        ''' Reads labels from the vision protobuf and makes a dictionary which records inward connections of each reactor'''
+        #TODO: need to fix this so we can re-add reactors and connect them again.
         for key in graph.nodes:
             node = graph.nodes[key]
             if((node.id not in self.edge_list_in and not node.delete) and (node.id != 999 and node.id != 0)):#don't add for the conditions or source nodes; they never take in
@@ -45,12 +47,12 @@ class Simulation:
 
         for key in graph.edges:
             edge = graph.edges[key]
-            if (edge.idB in self.edge_list_in) and (edge.idA not in self.edge_list_in[edge.idB]):#only append if it's a new node to this one
+            if ((edge.idB in self.edge_list_in) and (edge.idA not in self.edge_list_in[edge.idB]) or len(self.edge_list_in[edge.idB]) == 0):#append if it's a new node to this one
                 self.edge_list_in[edge.idB].append(edge.idA)
             if(edge.idA == 0):#source
                 self.connected_to_source = True
 
-        print('self.edge_list_in is {}\n'.format(self.edge_list_in))
+        #print('self.edge_list_in is {}\n'.format(self.edge_list_in))
 
 
 
@@ -64,19 +66,19 @@ class Simulation:
             if (node.id != 999 and node.id != 0):
                 simulation_state.kinetics.add()#always just add on to the end
                 simulation_state.kinetics[-1].label = node.label#always get the current last kinetics object
-                print('the label for this node is {} and its id is {}'.format(node.label, node.id))#this ID is coming out as 0. Why?
+                #print('the label for this node is {} and its id is {}'.format(node.label, node.id))
                 simulation_state.kinetics[-1].id = node.id
                 if (len(node.weight) > 0):
-                    simulation_state.kinetics[-1].temperature = node.weight[0]
+                    simulation_state.kinetics[-1].temperature = node.weight[0]#T is always the first in this repeat field
                 else:
                     simulation_state.kinetics[-1].temperature = 400  #default
         return simulation_state
 
 
-    def calc_conc(self, initial_conc, reactor_type, k_eq, k, first = False):
+    def calc_conc(self, initial_conc, reactor_type, k_eq, k):
         conc0 = self.molar_feed_rate / self.volumetric_feed_rates
         if(reactor_type == 'cstr'):
-            conc_limiting = self.cstr(initial_conc, t=self.time, k_eq = k_eq, k = k, first=first)
+            conc_limiting = self.cstr(initial_conc, t=self.time, k_eq = k_eq, k = k)
         elif(reactor_type == 'pfr'):
             conc_limiting = self.pfr(initial_conc, t=self.time, k_eq = k_eq, k = k)
         else:
@@ -100,12 +102,11 @@ class Simulation:
         if(self.reactor_number != len(simulation_state.kinetics)):  #reset simulation when no of reactors change
             self.reactor_number = len(simulation_state.kinetics)
             self.start_time = simulation_state.time
+            self.conc0 = self.molar_feed_rate[0]/self.volumetric_feed_rates[0]  # mol/dm3
 
         R = 8.314      # Universal gas constant (kJ/kmol K)
         P = 1          # Pressure (atm)
 
-        conc0 = self.molar_feed_rate / self.volumetric_feed_rates  # mol/dm3
-        #tau = self.reactor_volume / self.volumetric_feed_rates[0]      # seconds
 
         #def find_activation_energy(T):
         #    '''Interpolate through known values of activation energy and return activation energy corresponding to temperature T'''
@@ -117,49 +118,53 @@ class Simulation:
 
 
         self.time = simulation_state.time - self.start_time
-        conc_out, reactor_type, conc_limiting = {0:conc0[0]}, {}, {}
+        #print('Time is {}'.format(self.time))
+        conc_out_reactant, conc_out_product, reactor_type, conc_limiting = {0:self.conc0}, {0:0}, {}, {}
 
         for kinetics in simulation_state.kinetics:
-            conc_out[kinetics.id] = conc0[0]
+            conc_out_reactant[kinetics.id] = self.conc0
+            conc_out_product[kinetics.id] = 0
             #record concentration coming out of the reactors
             reactor_type[kinetics.id] = kinetics.label
 
-        print('simulation_state.kinetics is {}'.format(simulation_state.kinetics))
-        print('the keys for conc_out are {}, and the keys for self.edge_list_in are {}'.format(conc_out.keys(), self.edge_list_in.keys()))
+        #print('simulation_state.kinetics is {}'.format(simulation_state.kinetics))
+        #print('the keys for conc_out are {}, and the keys for self.edge_list_in are {}'.format(conc_out.keys(), self.edge_list_in.keys()))
+        sys.stdout.flush()
         count = 0
         for kinetics in simulation_state.kinetics:
             i = kinetics.id
             if(kinetics.temperature != 0):
                 T = kinetics.temperature
-                e_act = 25  #kJ/kmol
+                e_act = 42000  #kJ/kmol
                 k_eq = 100000 * math.e ** (-33.78*(T-298)/T)    #equilibrium constant
-                k = math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
+                k = 5*10**6 * math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
                 #find the limiting concentration for the ith reactor
-
                 #conc_limiting = self.calc_conc(sum([conc_out[idx] for idx in self.edge_list_in[i]]), kinetics.label, kinetics.id, k_eq, k)
                 conc_out_sum = 0.0
+                conc_product = 0.0
                 for idx in self.edge_list_in[i]:
-                    conc_out_sum += conc_out[idx]
-                first = (count == 0)
-                conc_limiting = self.calc_conc(initial_conc=conc_out_sum, reactor_type=kinetics.label,  k_eq=k_eq, k=k, first=first)
+                    conc_out_sum += conc_out_reactant[idx]
+                    conc_product += conc_out_product[idx]       #keeping track of product coming out of previous reactors
+                conc_limiting = self.calc_conc(initial_conc = conc_out_sum, reactor_type=kinetics.label,  k_eq=k_eq, k=k)
                 #print('Conc limiting is {}'.format(conc_limiting))
 
-                conc = [conc_limiting, conc_limiting, (conc_out_sum - conc_limiting), (conc_out_sum - conc_limiting)]
+                conc = [conc_limiting, conc_limiting, conc_product + (conc_out_sum - conc_limiting), conc_product + (conc_out_sum - conc_limiting)]
                 #print('conc is {}'.format(conc))
-                conc_out[kinetics.id] = conc_limiting
+                conc_out_reactant[kinetics.id] = conc_limiting
+                conc_out_product[kinetics.id] = conc_product + conc_out_sum - conc_limiting   #taking into account the existing conc of products
                 #conc is the list of lists of concentrations of chemical species. It's length is the number of reactors.
                 kinetics.temperature = T
                 kinetics.pressure = P
                 for j in range(len(conc)):
                     kinetics.mole_fraction.append(float(conc[j]))
-                if(simulation_state.time %5 == 0):
-                    print('The {}th kinetics is {}'.format(i, kinetics))
+                #if(simulation_state.time %5 == 0):
+                    #print('The {}th mole fractions are {}'.format(i, kinetics.mole_fraction))
             count += 1
 
         return simulation_state
 
 
-    def cstr(self, initial_conc, t, k_eq = 5, k = 0.1, first = False):
+    def cstr(self, initial_conc, t, k_eq = 5, k = 0.1):
         '''Calculates concentrations for a first order reaction in a CSTR.
 
         Parameters
@@ -180,16 +185,13 @@ class Simulation:
         '''
         def rate(conv, t):
            return -k* initial_conc * (1 - (1 + 1/k_eq)*conv)
-        #why were we checking for a specific reactor by its ID?
-        if(first):#CSTR is a steady state reactor, but over a long time we'd get a constant value
-            conv = si.odeint(rate, 0.0001, np.arange(0, 3600, 3600*25))
-            out_conc_lr = initial_conc * (1 - conv[int(t)])
-        else:
-            rv = 20 #m3
-            fa0 = 1 #mol/s
-            v0 = 10 #m3/s
-            conversion = min(rv*k*initial_conc/(fa0+k*rv*initial_conc+(k*rv*initial_conc)/k_eq), 1.0)
-            out_conc_lr = initial_conc*(1.0 - conversion)
+        rv = 20 #m3
+        fa0 = 1 #mol/s
+        v0 = 10 #m3/s
+        conversion = min(rv*k*initial_conc/(fa0+k*rv*initial_conc+(k*rv*initial_conc)/k_eq), 1.0)
+        #print('Conversion from cstr is {} at {}'.format(conversion, self.time))
+        out_conc_lr = initial_conc*(1.0 - conversion)
+        #print('A left in cstr is {}'.format(out_conc_lr))
         return out_conc_lr
 
     def pfr(self, initial_conc, t, k_eq = 5, k = 0.1):
@@ -212,11 +214,14 @@ class Simulation:
                 Final concentration of the limiting reactant when it leaves the reactor
         '''
         def rate(conv, t):
-            return k * initial_conc*(1 - (1+ 1/k_eq) * conv)
+            return k * initial_conc*(1 - (1 + 1/k_eq) * conv)
 
         rv = 20 #m3
         fa0 = 1 #mol/s
         v0 = 10 #m3/s
-        conversion = min(si.odeint(rate, 0.0001, np.arange(0, 3600, 3600*25)), 1.0)  # ~25fps
-        out_conc_lr = initial_conc*(1.0 - conversion[int(t)])
+        #conversion = min(si.odeint(rate, 0.0001, np.arange(0, 3600, 3600*25)), 1.0)  # ~25fps
+        conversion = min((k_eq - k_eq * math.exp( -self.time * k * (1 + k_eq) / k_eq))/(k_eq + 1), 1) #using derived formula
+        #print('Conversion from pfr is {} at {}'.format(conversion, t))
+        out_conc_lr = initial_conc*(1.0 - conversion)
+        #print('A left in pfr is {}'.format(out_conc_lr))
         return out_conc_lr

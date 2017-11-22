@@ -55,7 +55,6 @@ class Controller:
 
     async def update_simulation(self):
         '''Update simulation every time a message is received from vision'''
-
         if self.simulator.start_time == 0:
             self.simulator.start_time = self.graph.time
         self.simulation_state.time = self.graph.time
