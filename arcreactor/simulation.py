@@ -29,7 +29,7 @@ class Simulation:
 
     def update_edge_list(self, graph):
         ''' Reads labels from the vision protobuf and makes a dictionary which records inward connections of each reactor'''
-        #TODO: need to fix this so we can re-add reactors and connect them again.
+
         for key in graph.nodes:
             node = graph.nodes[key]
             if((node.id not in self.edge_list_in and not node.delete) and (node.id != 999 and node.id != 0)):#don't add for the conditions or source nodes; they never take in
@@ -42,8 +42,6 @@ class Simulation:
                         if(0 in self.edge_list_in[node.id]):
                             self.connected_to_source = False
                         self.edge_list_in[edgekey] = []#empty it
-
-
 
         for key in graph.edges:
             edge = graph.edges[key]
@@ -59,24 +57,26 @@ class Simulation:
     def add_delete_protobuf_objects(self, simulation_state, graph):
         '''Add and delete kinetics objects from the kinetics protobuf, and assign id, label, and temperature to new objects'''
         #delete the whole list each time and create a new one
-        for i in range(len(simulation_state.kinetics)):
+        #TODO: need to fix this so we can re-add reactors and connect them again. #UPDATE: Reactors can be re-added but are not reset unless source connection is removed.
+        length = len(simulation_state.kinetics)
+        for i in range(length):
             del simulation_state.kinetics[-1]
         for key in graph.nodes:
             node = graph.nodes[key]
             if (node.id != 999 and node.id != 0):
-                simulation_state.kinetics.add()#always just add on to the end
-                simulation_state.kinetics[-1].label = node.label#always get the current last kinetics object
-                #print('the label for this node is {} and its id is {}'.format(node.label, node.id))
-                simulation_state.kinetics[-1].id = node.id
-                if (len(node.weight) > 0):
-                    simulation_state.kinetics[-1].temperature = node.weight[0]#T is always the first in this repeat field
-                else:
-                    simulation_state.kinetics[-1].temperature = 400  #default
+                if(node.delete is not True):
+                    simulation_state.kinetics.add() #always just append
+                    simulation_state.kinetics[-1].label = node.label #always get the current last kinetics object
+                    simulation_state.kinetics[-1].id = node.id
+                    if (len(node.weight) > 0):
+                        simulation_state.kinetics[-1].temperature = node.weight[0]#T is always the first in this repeat field
+                    else:
+                        simulation_state.kinetics[-1].temperature = 400  #default
         return simulation_state
 
 
     def calc_conc(self, initial_conc, reactor_type, k_eq, k):
-        conc0 = self.molar_feed_rate / self.volumetric_feed_rates
+        conc0 = self.molar_feed_rate / self.volumetric_feed_rates #molar_feed_rate is a list
         if(reactor_type == 'cstr'):
             conc_limiting = self.cstr(initial_conc, t=self.time, k_eq = k_eq, k = k)
         elif(reactor_type == 'pfr'):
@@ -86,80 +86,85 @@ class Simulation:
         #print(conc_limiting)
         return conc_limiting
 
+    def calc_outputs(self, id=0, simulation_state, R, P):
+        '''RECURSIVELY calculate output concentrations for each node in the graph. ALWAYS call with id 0 first!'''
+        found = False #assume it's not there
+        for kinetics in simulation_state.kinetics:#look for node with incoming connection from this ID
+            if(id in self.edge_list_in[kinetics.id]):
+                found = True
+                #found it! set output concentrations and recurse
+                if(kinetics.temperature != 0):
+                    T = kinetics.temperature
+                    e_act = 45000  #kJ/kmol
+                    k_eq = 100000 * math.e ** (-33.78*(T-298)/T)    #equilibrium constant
+                    k = 5*10**6 * math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
+                    #find the limiting concentration for the ith reactor
+                    #conc_limiting = self.calc_conc(sum([conc_out[idx] for idx in self.edge_list_in[i]]), kinetics.label, kinetics.id, k_eq, k)
+                    conc_out_sum = 0.0
+                    conc_product = 0.0
+                    for idx in self.edge_list_in[kinetics.id]:
+                        conc_out_sum += self.conc_out_reactant[idx]
+                        conc_product += self.conc_out_product[idx]       #keeping track of product coming out of previous reactors
+                    #print('conc_out_sum is {} and conc_product is {} for id {}'.format(conc_out_sum, conc_product, kinetics.id))
+                    conc_limiting = self.calc_conc(initial_conc = conc_out_sum, reactor_type=kinetics.label,  k_eq=k_eq, k=k)
+                    #print('Conc limiting for reactor id {} is {}'.format(kinetics.id, conc_limiting))
+
+                    #conc = [conc_limiting, conc_limiting, conc_product + (conc_out_sum - conc_limiting), conc_product + (conc_out_sum - conc_limiting)]
+                    #print('conc is {}'.format(conc))
+                    self.conc_out_reactant[kinetics.id] = conc_limiting
+                    self.conc_out_product[kinetics.id] = conc_product + conc_out_sum - conc_limiting   #taking into account the existing conc of products
+                    self.calc_outputs(kinetics.id, simulation_state, R, P)#now that this node has its outputs set, go on to the ones it outputs to
+
+        if(not found):
+            return
+
+
     async def calculate(self, simulation_state, graph):
         '''The actual simulation for number of objects specified by the protobuf '''
         #graph = graph # update the graph object when we get it (see controller.py)
         self.update_edge_list(graph)
         if(len(graph.edges) == 0 or len(graph.nodes) == 0): #check if there are any nodes and edges
             return simulation_state
+
+        simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
         if(not self.connected_to_source ):
             if( simulation_state.time % 20 == 0):
                 print('NOT CONNECTED TO SOURCE')
             return simulation_state
 
-        simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
 
         if(self.reactor_number != len(simulation_state.kinetics)):  #reset simulation when no of reactors change
             self.reactor_number = len(simulation_state.kinetics)
             self.start_time = simulation_state.time
-            self.conc0 = self.molar_feed_rate[0]/self.volumetric_feed_rates[0]  # mol/dm3
+            #print('reactors = {}'.format(self.reactor_number))
 
         R = 8.314      # Universal gas constant (kJ/kmol K)
         P = 1          # Pressure (atm)
 
 
-        #def find_activation_energy(T):
-        #    '''Interpolate through known values of activation energy and return activation energy corresponding to temperature T'''
-        #    temp = [298, 348, 398, 443, 448, 498, 548, 598, 648, 698, 748, 798, 848, 898, 948, 998]
-        #    e_act = [20.25, 21.87, 24.01, 25, 26.69, 29.96, 33.85, 38.41, 43.66, 49.65, 56.41, 63.98, 72.4, 81.71, 91.94, 103.13]
-        #    #kJ/kmol, yet to use a model to calc e_act as per reaction
-        #    e_act1 = np.interp(T, temp, e_act)
-        #    return e_act1
-
-
         self.time = simulation_state.time - self.start_time
         #print('Time is {}'.format(self.time))
-        conc_out_reactant, conc_out_product, reactor_type, conc_limiting = {0:self.conc0}, {0:0}, {}, {}
+        self.conc_out_reactant, self.conc_out_product = {0:self.conc0}, {0:0}
 
         for kinetics in simulation_state.kinetics:
-            conc_out_reactant[kinetics.id] = self.conc0
-            conc_out_product[kinetics.id] = 0
-            #record concentration coming out of the reactors
-            reactor_type[kinetics.id] = kinetics.label
+            self.conc_out_reactant[kinetics.id] = 0
+            self.conc_out_product[kinetics.id] = 0
+            kinetics.pressure = P
+        self.calc_outputs(id = 0, simulation_state = simulation_state, R = R, P = P)#start with ID zero to look for nodes connected to source
+
 
         #print('simulation_state.kinetics is {}'.format(simulation_state.kinetics))
         #print('the keys for conc_out are {}, and the keys for self.edge_list_in are {}'.format(conc_out.keys(), self.edge_list_in.keys()))
-        sys.stdout.flush()
-        count = 0
-        for kinetics in simulation_state.kinetics:
+        #sys.stdout.flush()
+        for kinetics in simulation_state.kinetics:#TODO: change this loop to work "smartly" from source to ends... Recursion?
             i = kinetics.id
-            if(kinetics.temperature != 0):
-                T = kinetics.temperature
-                e_act = 42000  #kJ/kmol
-                k_eq = 100000 * math.e ** (-33.78*(T-298)/T)    #equilibrium constant
-                k = 5*10**6 * math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
-                #find the limiting concentration for the ith reactor
-                #conc_limiting = self.calc_conc(sum([conc_out[idx] for idx in self.edge_list_in[i]]), kinetics.label, kinetics.id, k_eq, k)
-                conc_out_sum = 0.0
-                conc_product = 0.0
-                for idx in self.edge_list_in[i]:
-                    conc_out_sum += conc_out_reactant[idx]
-                    conc_product += conc_out_product[idx]       #keeping track of product coming out of previous reactors
-                conc_limiting = self.calc_conc(initial_conc = conc_out_sum, reactor_type=kinetics.label,  k_eq=k_eq, k=k)
-                #print('Conc limiting is {}'.format(conc_limiting))
-
-                conc = [conc_limiting, conc_limiting, conc_product + (conc_out_sum - conc_limiting), conc_product + (conc_out_sum - conc_limiting)]
-                #print('conc is {}'.format(conc))
-                conc_out_reactant[kinetics.id] = conc_limiting
-                conc_out_product[kinetics.id] = conc_product + conc_out_sum - conc_limiting   #taking into account the existing conc of products
-                #conc is the list of lists of concentrations of chemical species. It's length is the number of reactors.
-                kinetics.temperature = T
-                kinetics.pressure = P
-                for j in range(len(conc)):
-                    kinetics.mole_fraction.append(float(conc[j]))
+            conc_limiting = self.conc_out_reactant[kinetics.id]
+            conc_out_product = self.conc_out_product[kinetics.id]  #taking into account the existing conc of products
+            conc = [conc_limiting, conc_limiting, conc_out_product, conc_out_product]
+            for j in range(len(conc)):
+                kinetics.mole_fraction.append(float(conc[j]))
                 #if(simulation_state.time %5 == 0):
                     #print('The {}th mole fractions are {}'.format(i, kinetics.mole_fraction))
-            count += 1
 
         return simulation_state
 
