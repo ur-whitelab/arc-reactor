@@ -45,7 +45,7 @@ class StreamHandler(tornado.web.RequestHandler):
             if self.request.connection.stream.closed():
                 print('Request closed')
                 return
-            jpg = self.controller.analyzer.get_plot(name, self.controller.simulation_state)
+            jpg = self.controller.analyzer.get_plot(name, self.controller.simulation_state, self.controller.start_plotting)
             if jpg is None:
                 continue
             self.write("--boundarydonotcross\n")

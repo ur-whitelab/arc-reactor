@@ -26,6 +26,7 @@ class Simulation:
         self.connected_to_source = False
         self.edge_list_changed = False
         self.conc0 = self.molar_feed_rate[0]/self.volumetric_feed_rates[0]  # mol/dm3
+        self.start_plotting = False #flag to start the plots
 
 
     def update_edge_list(self, graph):
@@ -132,6 +133,7 @@ class Simulation:
 
         simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
         if(not self.connected_to_source ):
+            self.start_plotting = False
             if( simulation_state.time % 20 == 0):
                 print('NOT CONNECTED TO SOURCE')
             return simulation_state
@@ -141,6 +143,7 @@ class Simulation:
             self.reactor_number = len(simulation_state.kinetics)
             self.start_time = simulation_state.time
             self.edge_list_changed = False
+            self.start_plotting = True
             #print('reactors = {}'.format(self.reactor_number))
 
         R = 8.314      # Universal gas constant (kJ/kmol K)
