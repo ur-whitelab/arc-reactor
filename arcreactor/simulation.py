@@ -24,6 +24,7 @@ class Simulation:
         self.time = 0
         self.edge_list_in = {}
         self.connected_to_source = False
+        self.edge_list_changed = False
         self.conc0 = self.molar_feed_rate[0]/self.volumetric_feed_rates[0]  # mol/dm3
 
 
@@ -34,7 +35,9 @@ class Simulation:
             node = graph.nodes[key]
             if((node.id not in self.edge_list_in and not node.delete) and (node.id != 999 and node.id != 0)):#don't add for the conditions or source nodes; they never take in
                 self.edge_list_in[node.id] = []#new ID, make a new list for it
+                self.edge_list_changed = True
             elif(node.delete):
+                self.edge_list_changed = True
                 for edgekey in self.edge_list_in:
                     if(node.id in self.edge_list_in[edgekey]):
                         self.edge_list_in[edgekey].remove(node.id)
@@ -47,6 +50,7 @@ class Simulation:
             edge = graph.edges[key]
             if ((edge.idB in self.edge_list_in) and (edge.idA not in self.edge_list_in[edge.idB]) or len(self.edge_list_in[edge.idB]) == 0):#append if it's a new node to this one
                 self.edge_list_in[edge.idB].append(edge.idA)
+                self.edge_list_changed = True
             if(edge.idA == 0):#source
                 self.connected_to_source = True
 
@@ -86,7 +90,7 @@ class Simulation:
         #print(conc_limiting)
         return conc_limiting
 
-    def calc_outputs(self, id=0, simulation_state, R, P):
+    def calc_outputs(self, id, simulation_state, R, P):
         '''RECURSIVELY calculate output concentrations for each node in the graph. ALWAYS call with id 0 first!'''
         found = False #assume it's not there
         for kinetics in simulation_state.kinetics:#look for node with incoming connection from this ID
@@ -133,9 +137,10 @@ class Simulation:
             return simulation_state
 
 
-        if(self.reactor_number != len(simulation_state.kinetics)):  #reset simulation when no of reactors change
+        if(self.edge_list_changed):  #reset simulation when no of reactors change
             self.reactor_number = len(simulation_state.kinetics)
             self.start_time = simulation_state.time
+            self.edge_list_changed = False
             #print('reactors = {}'.format(self.reactor_number))
 
         R = 8.314      # Universal gas constant (kJ/kmol K)
