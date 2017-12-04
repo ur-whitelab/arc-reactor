@@ -42,6 +42,7 @@ class Controller:
         self.simulator = Simulation(0)
         self.simulation_state = SystemKinetics()
         self.start_plotting = False #don't start plotting yet
+        self.restart_plots = False
 
     async def handle_start(self,server_port):
         '''Begin processing reactor simulation'''
@@ -63,6 +64,9 @@ class Controller:
         new_sim_state = copy.copy(self.simulation_state)
         self.simulation_state = await self.simulator.calculate(new_sim_state, new_graph)
         self.start_plotting = self.simulator.start_plotting
+        self.restart_plots = self.simulator.restart_plots
+        if(self.restart_plots):
+            self.simulator.restart_plots = False #reset the reset switch
         #print('Called calculate() in update_simulation(). Now self.simulation_state is {}'.format(self.simulation_state))
         #print('and self.graph was {}'.format(self.graph))
         await asyncio.sleep(0)

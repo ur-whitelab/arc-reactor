@@ -27,6 +27,7 @@ class Simulation:
         self.edge_list_changed = False
         self.conc0 = self.molar_feed_rate[0]/self.volumetric_feed_rates[0]  # mol/dm3
         self.start_plotting = False #flag to start the plots
+        self.restart_plots = False
 
 
     def update_edge_list(self, graph):
@@ -100,7 +101,7 @@ class Simulation:
                 #found it! set output concentrations and recurse
                 if(kinetics.temperature != 0):
                     T = kinetics.temperature
-                    e_act = 45000  #kJ/kmol
+                    e_act = 46000  #kJ/kmol
                     k_eq = 100000 * math.e ** (-33.78*(T-298)/T)    #equilibrium constant
                     k = 5*10**6 * math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
                     #find the limiting concentration for the ith reactor
@@ -139,10 +140,14 @@ class Simulation:
             return simulation_state
 
 
-        if(self.edge_list_changed):  #reset simulation when no of reactors change
+        if(self.reactor_number != len(simulation_state.kinetics)):
+            self.edge_list_changed = True
+
+        if(self.edge_list_changed):  #reset simulation when edges change
             self.reactor_number = len(simulation_state.kinetics)
             self.start_time = simulation_state.time
             self.edge_list_changed = False
+            self.restart_plots = True
             self.start_plotting = True
             #print('reactors = {}'.format(self.reactor_number))
 
