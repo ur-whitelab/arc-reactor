@@ -10,6 +10,9 @@ import sys
 We consider a pseudo first order reversible chemical reaction which is equilibrium limited.
 All reactors are equally sized and participants decide the temperature at which they are operated.
 A + B <--> C + D
+
+Update: Now using Sabatier equation.
+CO2 + 4H2 -> CH4 + 2H2O
 '''
 
 class Simulation:
@@ -28,6 +31,11 @@ class Simulation:
         self.conc0 = self.molar_feed_rate[0]/self.volumetric_feed_rates[0]  # mol/dm3
         self.start_plotting = False #flag to start the plots
         self.restart_plots = False
+        #stoichiometry
+        self.a = 1
+        self.b = 4
+        self.c = 1
+        self.d = 2
 
 
     def update_edge_list(self, graph):
@@ -101,7 +109,7 @@ class Simulation:
                 #found it! set output concentrations and recurse
                 if(kinetics.temperature != 0):
                     T = kinetics.temperature
-                    e_act = 46000  #kJ/kmol
+                    e_act = 47000  #kJ/kmol
                     k_eq = 100000 * math.e ** (-33.78*(T-298)/T)    #equilibrium constant
                     k = 5*10**6 * math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
                     #find the limiting concentration for the ith reactor
@@ -173,7 +181,7 @@ class Simulation:
             i = kinetics.id
             conc_limiting = self.conc_out_reactant[kinetics.id]
             conc_out_product = self.conc_out_product[kinetics.id]  #taking into account the existing conc of products
-            conc = [conc_limiting, conc_limiting, conc_out_product, conc_out_product]
+            conc = [conc_limiting, self.b / self.a * conc_limiting, conc_out_product, self.d / self.c * conc_out_product]
             for j in range(len(conc)):
                 kinetics.mole_fraction.append(float(conc[j]))
                 #if(simulation_state.time %5 == 0):
@@ -202,11 +210,11 @@ class Simulation:
             Final concentration of the limiting reactor when it leaves the reactor
         '''
         def rate(conv, t):
-           return -k* initial_conc * (1 - (1 + 1/k_eq)*conv)
+           return -k* initial_conc * (1 - (1 + self.c / self.a /k_eq)*conv)
         rv = 20 #m3
         fa0 = 1 #mol/s
         v0 = 10 #m3/s
-        conversion = min(rv*k*initial_conc/(fa0+k*rv*initial_conc+(k*rv*initial_conc)/k_eq), 1.0)
+        conversion = min(rv * k * initial_conc/(fa0 + k* rv * initial_conc + (self.c / self.a * k * rv * initial_conc)/k_eq), 1.0)
         #print('Conversion from cstr is {} at {}'.format(conversion, self.time))
         out_conc_lr = initial_conc*(1.0 - conversion)
         #print('A left in cstr is {}'.format(out_conc_lr))
@@ -232,13 +240,13 @@ class Simulation:
                 Final concentration of the limiting reactant when it leaves the reactor
         '''
         def rate(conv, t):
-            return k * initial_conc*(1 - (1 + 1/k_eq) * conv)
+            return k * initial_conc*(1 - (1 + self.c / self.a /k_eq) * conv)
 
         rv = 20 #m3
         fa0 = 1 #mol/s
         v0 = 10 #m3/s
         #conversion = min(si.odeint(rate, 0.0001, np.arange(0, 3600, 3600*25)), 1.0)  # ~25fps
-        conversion = min((k_eq - k_eq * math.exp( -self.time * k * (1 + k_eq) / k_eq))/(k_eq + 1), 1) #using derived formula
+        conversion = min((k_eq - k_eq * math.exp( -self.time * k * (self.c/self.a + k_eq) / k_eq))/(k_eq + self.c/self.a), 1) #using derived formula
         #print('Conversion from pfr is {} at {}'.format(conversion, t))
         out_conc_lr = initial_conc*(1.0 - conversion)
         #print('A left in pfr is {}'.format(out_conc_lr))
