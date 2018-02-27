@@ -24,6 +24,7 @@ class Simulation:
         self.volumetric_feed_rates = np.array([10, 10])     # m3/s
         self.molar_feed_rate = np.array([1, 1])           # mol/s
         self.start_time = start_time
+        self.graph_time = 0
         self.time = 0
         self.edge_list_in = {}
         self.connected_to_source = False
@@ -143,7 +144,7 @@ class Simulation:
         simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
         if(not self.connected_to_source ):
             self.start_plotting = False
-            if( simulation_state.time % 20 == 0):
+            if( self.graph_time % 20 == 0):
                 print('NOT CONNECTED TO SOURCE')
             return simulation_state
 
@@ -153,7 +154,7 @@ class Simulation:
 
         if(self.edge_list_changed):  #reset simulation when edges change
             self.reactor_number = len(simulation_state.kinetics)
-            self.start_time = simulation_state.time
+            self.start_time = self.graph_time
             self.edge_list_changed = False
             self.restart_plots = True
             self.start_plotting = True
@@ -163,7 +164,7 @@ class Simulation:
         P = 1          # Pressure (atm)
 
 
-        self.time = simulation_state.time - self.start_time
+        self.time = self.graph_time - self.start_time
         #print('Time is {}'.format(self.time))
         self.conc_out_reactant, self.conc_out_product = {0:self.conc0}, {0:0}
 
@@ -171,8 +172,8 @@ class Simulation:
             self.conc_out_reactant[kinetics.id] = 0
             self.conc_out_product[kinetics.id] = 0
             kinetics.pressure = P
-        self.calc_outputs(id = 0, simulation_state = simulation_state, R = R, P = P)#start with ID zero to look for nodes connected to source
-
+        self.calc_outputs(id = 0, simulation_state = simulation_state, R = R, P = P)
+        #start with ID zero to look for nodes connected to source
 
         #print('simulation_state.kinetics is {}'.format(simulation_state.kinetics))
         #print('the keys for conc_out are {}, and the keys for self.edge_list_in are {}'.format(conc_out.keys(), self.edge_list_in.keys()))
@@ -186,7 +187,7 @@ class Simulation:
                 kinetics.mole_fraction.append(float(conc[j]))
                 #if(simulation_state.time %5 == 0):
                     #print('The {}th mole fractions are {}'.format(i, kinetics.mole_fraction))
-
+        simulation_state.time = self.time
         return simulation_state
 
 

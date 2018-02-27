@@ -59,7 +59,7 @@ class Controller:
         '''Update simulation every time a message is received from vision'''
         if self.simulator.start_time == 0:
             self.simulator.start_time = self.graph.time
-        self.simulation_state.time = self.graph.time
+        self.simulator.graph_time = self.graph.time
         new_graph = copy.copy(self.graph)
         new_sim_state = copy.copy(self.simulation_state)
         self.simulation_state = await self.simulator.calculate(new_sim_state, new_graph)
