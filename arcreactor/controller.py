@@ -4,11 +4,11 @@ import sys
 import time
 import argparse
 import asyncio
-from server import start_server
-from protobufs.graph_pb2 import Graph
-from protobufs.kinetics_pb2 import SystemKinetics
-from analysis import Analyzer
-from simulation import Simulation
+from .server import start_server
+from .protobufs.graph_pb2 import Graph
+from .protobufs.kinetics_pb2 import SystemKinetics
+from .analysis import Analyzer
+from .simulation import Simulation
 
 import copy
 zmq.asyncio.install()

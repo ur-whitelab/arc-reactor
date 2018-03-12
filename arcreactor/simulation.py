@@ -2,7 +2,7 @@ import numpy as np
 import datetime as dt
 import time
 import scipy.integrate as si
-from protobufs.kinetics_pb2 import *
+from .protobufs.kinetics_pb2 import *
 import math
 import sys
 

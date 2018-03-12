@@ -7,8 +7,8 @@ from tornado.platform.asyncio import AsyncIOMainLoop
 import asyncio
 import os
 import json
-from simulation import *
-from analysis import *
+from .simulation import *
+from .analysis import *
 
 RESOURCES = os.path.join(os.path.dirname(__file__), os.pardir, 'resources')
 
