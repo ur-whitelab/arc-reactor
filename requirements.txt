@@ -7,3 +7,6 @@ pypi-publisher
 pyzmq>=17.0.0b1
 tornado>=4.5
 protobuf
+networkx
+pygraphviz
+moviepy
