@@ -80,6 +80,7 @@ class Controller:
         await self.update_simulation()
         #exponential moving average of update frequency
         self.frequency = self.frequency * 0.8 +  0.2 / max(0.0001, time.time() - start_time)
+        #print('sim updated. Sending message with timestep {}'.format(self.simulation_state.time))
         await self.pub_sock.send_multipart(['simulation-update'.encode(), self.simulation_state.SerializeToString()])
 
 

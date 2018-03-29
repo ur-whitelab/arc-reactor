@@ -138,8 +138,6 @@ class Simulation:
         '''The actual simulation for number of objects specified by the protobuf '''
         #graph = graph # update the graph object when we get it (see controller.py)
         self.update_edge_list(graph)
-        if(len(graph.edges) == 0 or len(graph.nodes) == 0): #check if there are any nodes and edges
-            return simulation_state
 
         simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
         if(not self.connected_to_source ):
