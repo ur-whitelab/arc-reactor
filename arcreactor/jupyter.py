@@ -12,6 +12,9 @@ LEGEND = [r'CO$_2$', r'H$_2$', r'CH$_4$', r'H$_2$O']
 
 
 class Reactors:
+    '''
+    A network of CSTR and PFR chemical reactors joined in a network.
+    '''
 
     PFR = 'pfr'
     CSTR = 'cstr'
@@ -45,6 +48,21 @@ class Reactors:
         self.state = loop.run_until_complete(self.system.calculate(tmp_state, tmp_graph))
 
     def add_reactor(self, reactor_type, temperature = 300):
+        '''
+        Add the given reactor type and optionally temperature.
+
+        Parameters
+        ----------
+            reactor_type : int 
+                The type of the reactor. You can access types with class variables: `reactors.CSTR` and `reactors.PFR`
+            temperature : float, optional
+                The reactor temperature in Kelivn. Defaults to 300 K
+        Returns
+        ---------
+        int
+            The id of the reactor. This is used to connect the reactor.
+
+        '''
         assert reactor_type == 'cstr' or reactor_type == 'pfr'
         node = self.graph.nodes[self.node_ids]
         node.id = self.node_ids
@@ -55,12 +73,22 @@ class Reactors:
         self._update_nxgraph()
         return node.id
 
-    def connect(self, inlet, outlet):
-        assert len(self.graph.nodes) > inlet and len(self.graph.nodes) > outlet
-        assert not self.graph.nodes[inlet].delete and not self.graph.nodes[outlet].delete
+    def connect(self, source, destination):
+        '''
+        Connect the given two reactors. The order is inlet followed by outlet.
+
+        Parameters
+        -----------
+            source : int
+                The reactor id which will be the source. You receive this id as output from `add_reactor(...)`.
+            destination : int
+                The reactor id for the destination.        
+        '''
+        assert len(self.graph.nodes) > source and len(self.graph.nodes) > destination
+        assert not self.graph.nodes[source].delete and not self.graph.nodes[destination].delete
         edge = self.graph.edges[self.edge_ids]
-        edge.idA = inlet
-        edge.idB = outlet
+        edge.idA = source
+        edge.idB = destination
         edge.labelA = self.graph.nodes[edge.idA].label
         edge.labelB = self.graph.nodes[edge.idB].label
         self.edge_ids += 1
@@ -134,6 +162,16 @@ class Reactors:
                     autopct = lambda x : '{:.0f}%'.format(x),
                     pctdistance  = 0.8)
     def plot_reactors(self, time = 0, fig = None):
+        '''
+        Plot the reactors and their mole fractions at the given time
+
+        Parameters
+        -----------
+            time : int, optional
+                The number of seconds at which to plot. Defaults to 0
+            fig : matplotlib.Figure, optional
+                Draw the reactors on a particular figure
+        '''
         if fig is None:
             fig, ax = plt.subplots()
         else:
@@ -153,6 +191,16 @@ class Reactors:
 
     @functools.lru_cache(maxsize=16)
     def animate_reactors(self, time, fps = 30):
+        '''
+        Plot the reactors and their mole fractions up to the given time in an animation
+
+        Parameters
+        -----------
+            time : int
+                The number of seconds until which to animate.
+            fps : float, optional
+                The frames per second of the resulting animation.
+        '''
         fig = plt.figure()
         ax = fig.gca()
         ax.get_xaxis().set_visible(False)
