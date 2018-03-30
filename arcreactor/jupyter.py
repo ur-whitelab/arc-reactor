@@ -43,7 +43,7 @@ class Reactors:
     def _step(self, dt=1):
         tmp_graph = copy.copy(self.graph)
         tmp_state = copy.copy(self.state)
-        self.system.graph_time += int(dt)
+        self.system.graph_time += int(dt*3.25)
         loop = asyncio.get_event_loop()
         self.state = loop.run_until_complete(self.system.calculate(tmp_state, tmp_graph))
 
@@ -172,6 +172,7 @@ class Reactors:
             fig : matplotlib.Figure, optional
                 Draw the reactors on a particular figure
         '''
+       
         if fig is None:
             fig, ax = plt.subplots()
         else:
@@ -186,7 +187,7 @@ class Reactors:
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
         ax.legend(LEGEND)
-        ax.set_title('$t = {:.2f}$'.format(self.system.graph_time))
+        ax.set_title('$t = {:.2f}$'.format(self.system.graph_time / 3.25))
         plt.show()
 
     @functools.lru_cache(maxsize=16)
@@ -221,7 +222,7 @@ class Reactors:
             self._plot_fracs(layout, ax, radius=25)
             self._plot_graph(layout, ax)
             ax.legend(LEGEND)
-            ax.set_title('$t = {:.2f}$'.format(self.system.graph_time))
+            ax.set_title('$t = {:.2f}$'.format(self.system.graph_time / 3.25))
             return mplfig_to_npimage(fig)
 
         animation = VideoClip(draw, duration=duration)
