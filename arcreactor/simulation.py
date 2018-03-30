@@ -37,6 +37,10 @@ class Simulation:
         self.b = 4
         self.c = 1
         self.d = 2
+        self.ready_flags = {}#these are for tracking when PFRs are finished reacting
+        self.ready_flags[0] = True #Source is always ready!
+        self.done_times = {}#A reactor only starts outputting if all its incoming edges are done
+        self.done_times[0] = 0.0 #these are times so they should be floats
 
 
     def update_edge_list(self, graph):
@@ -83,6 +87,7 @@ class Simulation:
                     simulation_state.kinetics.add() #always just append
                     simulation_state.kinetics[-1].label = node.label #always get the current last kinetics object
                     simulation_state.kinetics[-1].id = node.id
+                    self.ready_flags[node.id] = False #start not ready
                     if (len(node.weight) > 0):
                         simulation_state.kinetics[-1].temperature = node.weight[0]#T is always the first in this repeat field
                     else:
@@ -90,16 +95,16 @@ class Simulation:
         return simulation_state
 
 
-    def calc_conc(self, initial_conc, reactor_type, k_eq, k):
+    def calc_conc(self, initial_conc, reactor_type, k_eq, k, id):
         conc0 = self.molar_feed_rate / self.volumetric_feed_rates #molar_feed_rate is a list
         if(reactor_type == 'cstr'):
-            conc_limiting = self.cstr(initial_conc, t=self.time, k_eq = k_eq, k = k)
+            conc_limiting, ready = self.cstr(initial_conc, t=self.time, k_eq = k_eq, k = k)
         elif(reactor_type == 'pfr'):
-            conc_limiting = self.pfr(initial_conc, t=self.time, k_eq = k_eq, k = k)
+            conc_limiting, ready = self.pfr(initial_conc, t=self.time, k_eq = k_eq, k = k, done_time = self.done_times[id])
         else:
             conc_limiting = conc0[0]
         #print(conc_limiting)
-        return conc_limiting
+        return (conc_limiting, ready)
 
     def calc_outputs(self, id, simulation_state, R, P):
         '''RECURSIVELY calculate output concentrations for each node in the graph. ALWAYS call with id 0 first!'''
@@ -117,17 +122,32 @@ class Simulation:
                     #conc_limiting = self.calc_conc(sum([conc_out[idx] for idx in self.edge_list_in[i]]), kinetics.label, kinetics.id, k_eq, k)
                     conc_out_sum = 0.0
                     conc_product = 0.0
+                    all_incoming_ready = True
                     for idx in self.edge_list_in[kinetics.id]:
-                        conc_out_sum += self.conc_out_reactant[idx]
-                        conc_product += self.conc_out_product[idx]       #keeping track of product coming out of previous reactors
-                    #print('conc_out_sum is {} and conc_product is {} for id {}'.format(conc_out_sum, conc_product, kinetics.id))
-                    conc_limiting = self.calc_conc(initial_conc = conc_out_sum, reactor_type=kinetics.label,  k_eq=k_eq, k=k)
-                    #print('Conc limiting for reactor id {} is {}'.format(kinetics.id, conc_limiting))
+                        if(self.ready_flags[idx] == False):
+                            all_incoming_ready = False
+                    if(all_incoming_ready):
+                        max_done_time_in = 0.0
+                        for idx in self.edge_list_in[kinetics.id]:
+                            conc_out_sum += self.conc_out_reactant[idx]
+                            conc_product += self.conc_out_product[idx]#keeping track of product coming out of previous reactors
+                            max_done_time_in = max(max_done_time_in, self.done_times[idx])
+                        if(kinetics.label == 'cstr'):
+                            self.done_times[kinetics.id] = 0.0
+                        elif(kinetics.label == 'pfr'):
+                            self.done_times[kinetics.id] = max_done_time_in + 20.0
+                        #print('conc_out_sum is {} and conc_product is {} for id {}'.format(conc_out_sum, conc_product, kinetics.id))
+                        conc_limiting, self.ready_flags[kinetics.id] = self.calc_conc(initial_conc = conc_out_sum, reactor_type=kinetics.label,  k_eq=k_eq, k=k, id=kinetics.id)
+                        #print('Conc limiting for reactor id {} is {}'.format(kinetics.id, conc_limiting))
 
-                    #conc = [conc_limiting, conc_limiting, conc_product + (conc_out_sum - conc_limiting), conc_product + (conc_out_sum - conc_limiting)]
-                    #print('conc is {}'.format(conc))
-                    self.conc_out_reactant[kinetics.id] = conc_limiting
-                    self.conc_out_product[kinetics.id] = conc_product + conc_out_sum - conc_limiting   #taking into account the existing conc of products
+                        #conc = [conc_limiting, conc_limiting, conc_product + (conc_out_sum - conc_limiting), conc_product + (conc_out_sum - conc_limiting)]
+                        #print('conc is {}'.format(conc))
+                        self.conc_out_reactant[kinetics.id] = conc_limiting
+                        self.conc_out_product[kinetics.id] = conc_product + conc_out_sum - conc_limiting   #taking into account the existing conc of products
+                    else:#Do NOT output until ready
+                        self.conc_out_reactant[kinetics.id] = 0.0
+                        self.conc_out_product[kinetics.id] = 0.0
+                        self.ready_flags[kinetics.id] = False
                     self.calc_outputs(kinetics.id, simulation_state, R, P)#now that this node has its outputs set, go on to the ones it outputs to
 
         if(not found):
@@ -216,10 +236,11 @@ class Simulation:
         conversion = min(rv * k * initial_conc/(fa0 + k* rv * initial_conc + (self.c / self.a * k * rv * initial_conc)/k_eq), 1.0)
         #print('Conversion from cstr is {} at {}'.format(conversion, self.time))
         out_conc_lr = initial_conc*(1.0 - conversion)
+        ready = True #CSTR is instantaneous
         #print('A left in cstr is {}'.format(out_conc_lr))
-        return out_conc_lr
+        return (out_conc_lr, ready)
 
-    def pfr(self, initial_conc, t, k_eq = 5, k = 0.1):
+    def pfr(self, initial_conc, t, k_eq = 5, k = 0.1, done_time = 20.0):
         '''Calculates concentrations for a first order reaction in a PFR.
 
         Parameters
@@ -238,16 +259,19 @@ class Simulation:
         float
                 Final concentration of the limiting reactant when it leaves the reactor
         '''
-        def rate(conv, t):
+        def rate(conv, t):#must pass in start time.
             return k * initial_conc*(1 - (1 + self.c / self.a /k_eq) * conv)
 
         rv = 20 #m3
         fa0 = 1 #mol/s
         v0 = 10 #m3/s
         #conversion = min(si.odeint(rate, 0.0001, np.arange(0, 3600, 3600*25)), 1.0)  # ~25fps
-        time = min(20.0, self.time/3.25)
+        time = min(done_time, self.time/3.25)
+        ready = False
+        if(self.time/3.25 >= done_time):
+            ready = True
         conversion = min((k_eq - k_eq * math.exp( -time * k * (self.c/self.a + k_eq) / k_eq))/(k_eq + self.c/self.a), 1) #using derived formula; divide by 3.25 to go from FPS to accelerated seconds
         #print('Conversion from pfr is {} at {}'.format(conversion, t))
         out_conc_lr = initial_conc*(1.0 - conversion)
         #print('A left in pfr is {}'.format(out_conc_lr))
-        return out_conc_lr
+        return (out_conc_lr, ready)
