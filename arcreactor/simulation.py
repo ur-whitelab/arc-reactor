@@ -245,7 +245,8 @@ class Simulation:
         fa0 = 1 #mol/s
         v0 = 10 #m3/s
         #conversion = min(si.odeint(rate, 0.0001, np.arange(0, 3600, 3600*25)), 1.0)  # ~25fps
-        conversion = min((k_eq - k_eq * math.exp( -self.time * k * (self.c/self.a + k_eq) / k_eq))/(k_eq + self.c/self.a), 1) #using derived formula
+        time = min(20.0, self.time/3.25)
+        conversion = min((k_eq - k_eq * math.exp( -time * k * (self.c/self.a + k_eq) / k_eq))/(k_eq + self.c/self.a), 1) #using derived formula; divide by 3.25 to go from FPS to accelerated seconds
         #print('Conversion from pfr is {} at {}'.format(conversion, t))
         out_conc_lr = initial_conc*(1.0 - conversion)
         #print('A left in pfr is {}'.format(out_conc_lr))
