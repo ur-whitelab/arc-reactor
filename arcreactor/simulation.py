@@ -20,7 +20,7 @@ class Simulation:
     def __init__(self, start_time):
         #For demo purposes, the values are fixed
         self.reactor_number = 0
-        self.reactor_volume = 20            # m3
+        self.reactor_volume = 200            # m3
         self.volumetric_feed_rates = np.array([10, 10])     # m3/s
         self.molar_feed_rate = np.array([1, 1])           # mol/s
         self.start_time = start_time
@@ -230,7 +230,7 @@ class Simulation:
         '''
         def rate(conv, t):
            return -k* initial_conc * (1 - (1 + self.c / self.a /k_eq)*conv)
-        rv = 20 #m3
+        rv = self.reactor_volume #m3
         fa0 = 1 #mol/s
         v0 = 10 #m3/s
         conversion = min(rv * k * initial_conc/(fa0 + k* rv * initial_conc + (self.c / self.a * k * rv * initial_conc)/k_eq), 1.0)
@@ -262,7 +262,7 @@ class Simulation:
         def rate(conv, t):#must pass in start time.
             return k * initial_conc*(1 - (1 + self.c / self.a /k_eq) * conv)
 
-        rv = 20 #m3
+        rv = self.reactor_volume #m3
         fa0 = 1 #mol/s
         v0 = 10 #m3/s
         #conversion = min(si.odeint(rate, 0.0001, np.arange(0, 3600, 3600*25)), 1.0)  # ~25fps
