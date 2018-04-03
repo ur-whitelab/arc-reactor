@@ -27,6 +27,9 @@ class Simulation:
         self.graph_time = 0
         self.time = 0
         self.edge_list_in = {}
+        self.edge_list_out = {}
+        self.vol_out_rates = {}
+        self.vol_in_rates = {}
         self.connected_to_source = False
         self.edge_list_changed = False
         self.conc0 = self.molar_feed_rate[0]/self.volumetric_feed_rates[0]  # mol/dm3
@@ -45,11 +48,14 @@ class Simulation:
 
     def update_edge_list(self, graph):
         ''' Reads labels from the vision protobuf and makes a dictionary which records inward connections of each reactor'''
-
+        self.edge_list_out[0] = []
         for key in graph.nodes:
             node = graph.nodes[key]
             if((node.id not in self.edge_list_in and not node.delete) and (node.id != 999 and node.id != 0)):#don't add for the conditions or source nodes; they never take in
-                self.edge_list_in[node.id] = []#new ID, make a new list for it
+                self.edge_list_in[node.id] = []#new ID, make new lists for it
+                self.edge_list_changed = True
+            if((node.id not in self.edge_list_out and not node.delete) and (node.id != 999 and node.id != 0)):#don't add for the conditions or source nodes; they never take in
+                self.edge_list_out[node.id] = []
                 self.edge_list_changed = True
             elif(node.delete):
                 self.edge_list_changed = True
@@ -60,14 +66,45 @@ class Simulation:
                         if(0 in self.edge_list_in[node.id]):
                             self.connected_to_source = False
                         self.edge_list_in[edgekey] = []#empty it
+                for edgekey in self.edge_list_out:
+                    if(node.id in self.edge_list_out[edgekey]):
+                        self.edge_list_out[edgekey].remove(node.id)
+                    if(edgekey == node.id):
+                        if(0 in self.edge_list_out[node.id]):
+                            self.connected_to_source = False
+                        self.edge_list_out[edgekey] = []#empty it
 
         for key in graph.edges:
             edge = graph.edges[key]
             if ((edge.idB in self.edge_list_in) and (edge.idA not in self.edge_list_in[edge.idB]) or len(self.edge_list_in[edge.idB]) == 0):#append if it's a new node to this one
                 self.edge_list_in[edge.idB].append(edge.idA)
                 self.edge_list_changed = True
+            if ((edge.idA in self.edge_list_out) and (edge.idB not in self.edge_list_out[edge.idA]) or len(self.edge_list_out[edge.idA]) == 0):#append if it's a new node from this one
+                self.edge_list_out[edge.idA].append(edge.idB)
+                self.edge_list_changed = True
             if(edge.idA == 0):#source
                 self.connected_to_source = True
+                self.edge_list_out[0].append(edge.idB)
+
+    def update_out_rates(self, id):
+        '''Called recursively to calculate volumetric out rates. Not displayed.'''
+        if(id == 0):
+            self.vol_out_rates[id] = self.volumetric_feed_rates[0]
+        else:
+            vol_in_sum = 0.0
+            for node in self.edge_list_in[id]:
+                if(node in self.vol_out_rates):
+                    val = self.vol_out_rates[node]
+                else:
+                    val=0.0
+                vol_in_sum += val
+            self.vol_in_rates[id] = vol_in_sum
+            self.vol_out_rates[id] = vol_in_sum / max(len(self.edge_list_out[id]), 1.0)
+        if(len(self.edge_list_out[id]) == 0):
+            return
+        for key in self.edge_list_out[id]:
+            self.update_out_rates(key)
+
 
         #print('self.edge_list_in is {}\n'.format(self.edge_list_in))
 
@@ -122,6 +159,7 @@ class Simulation:
                     #conc_limiting = self.calc_conc(sum([conc_out[idx] for idx in self.edge_list_in[i]]), kinetics.label, kinetics.id, k_eq, k)
                     conc_out_sum = 0.0
                     conc_product = 0.0
+                    vol_out_sum = 0.0
                     all_incoming_ready = True
                     for idx in self.edge_list_in[kinetics.id]:
                         if(self.ready_flags[idx] == False):
@@ -129,13 +167,17 @@ class Simulation:
                     if(all_incoming_ready):
                         max_done_time_in = 0.0
                         for idx in self.edge_list_in[kinetics.id]:
-                            conc_out_sum += self.conc_out_reactant[idx]
-                            conc_product += self.conc_out_product[idx]#keeping track of product coming out of previous reactors
+                            conc_out_sum += self.conc_out_reactant[idx] * self.vol_out_rates[kinetics.id] #len(self.edge_list_in[kinetics.id])
+                            #keeping track of product coming out of previous reactors
+                            conc_product += self.conc_out_product[idx] * self.vol_out_rates[kinetics.id]
+                            vol_out_sum += self.vol_out_rates[kinetics.id]
                             max_done_time_in = max(max_done_time_in, self.done_times[idx])
+                        conc_out_sum /= vol_out_sum# (C1V1 + C2V2)/(V1+V2) = C_final
+                        conc_product /= vol_out_sum
                         if(kinetics.label == 'cstr'):
                             self.done_times[kinetics.id] = 0.0
                         elif(kinetics.label == 'pfr'):
-                            self.done_times[kinetics.id] = max_done_time_in + 20.0
+                            self.done_times[kinetics.id] = max_done_time_in + self.reactor_volume/self.vol_in_rates[kinetics.id]
                         #print('conc_out_sum is {} and conc_product is {} for id {}'.format(conc_out_sum, conc_product, kinetics.id))
                         conc_limiting, self.ready_flags[kinetics.id] = self.calc_conc(initial_conc = conc_out_sum, reactor_type=kinetics.label,  k_eq=k_eq, k=k, id=kinetics.id)
                         #print('Conc limiting for reactor id {} is {}'.format(kinetics.id, conc_limiting))
@@ -158,7 +200,9 @@ class Simulation:
         '''The actual simulation for number of objects specified by the protobuf '''
         #graph = graph # update the graph object when we get it (see controller.py)
         self.update_edge_list(graph)
-
+        self.update_out_rates(0)#ONLY call this after update_edge_list() is done, and ONLY with id == 0
+        if(self.graph_time % 100 ==0):
+            print('update_out_rates was called and now out rates are: {}'.format(self.vol_out_rates))
         simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
         if(not self.connected_to_source ):
             self.start_plotting = False
@@ -231,8 +275,7 @@ class Simulation:
         def rate(conv, t):
            return -k* initial_conc * (1 - (1 + self.c / self.a /k_eq)*conv)
         rv = self.reactor_volume #m3
-        fa0 = 1 #mol/s
-        v0 = 10 #m3/s
+        fa0 = self.molar_feed_rate[0] #mol/s
         conversion = min(rv * k * initial_conc/(fa0 + k* rv * initial_conc + (self.c / self.a * k * rv * initial_conc)/k_eq), 1.0)
         #print('Conversion from cstr is {} at {}'.format(conversion, self.time))
         out_conc_lr = initial_conc*(1.0 - conversion)
@@ -240,7 +283,7 @@ class Simulation:
         #print('A left in cstr is {}'.format(out_conc_lr))
         return (out_conc_lr, ready)
 
-    def pfr(self, initial_conc, t, k_eq = 5, k = 0.1, done_time = 20.0):
+    def pfr(self, initial_conc, t, k_eq = 5, k = 0.1, done_time = None):
         '''Calculates concentrations for a first order reaction in a PFR.
 
         Parameters
@@ -259,12 +302,10 @@ class Simulation:
         float
                 Final concentration of the limiting reactant when it leaves the reactor
         '''
+        if(done_time is None):
+            done_time = self.reactor_volume/self.volumetric_feed_rates[1]
         def rate(conv, t):#must pass in start time.
             return k * initial_conc*(1 - (1 + self.c / self.a /k_eq) * conv)
-
-        rv = self.reactor_volume #m3
-        fa0 = 1 #mol/s
-        v0 = 10 #m3/s
         #conversion = min(si.odeint(rate, 0.0001, np.arange(0, 3600, 3600*25)), 1.0)  # ~25fps
         time = min(done_time, self.time/3.25)
         ready = False
