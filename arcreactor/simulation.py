@@ -51,40 +51,43 @@ class Simulation:
         self.edge_list_out[0] = []
         for key in graph.nodes:
             node = graph.nodes[key]
-            if((node.id not in self.edge_list_in and not node.delete) and (node.id != 999 and node.id != 0)):#don't add for the conditions or source nodes; they never take in
+            if (node.id not in self.edge_list_in and not node.delete) and (node.id != 999 and node.id != 0):#don't add for the conditions or source nodes; they never take in
                 self.edge_list_in[node.id] = []#new ID, make new lists for it
+                self.vol_in_rates[node.id] = 0.0
                 self.edge_list_changed = True
-            if((node.id not in self.edge_list_out and not node.delete) and (node.id != 999 and node.id != 0)):#don't add for the conditions or source nodes; they never take in
+            if (node.id not in self.edge_list_out and not node.delete) and (node.id != 999 and node.id != 0):#don't add for the conditions or source nodes; they never take in
                 self.edge_list_out[node.id] = []
+                self.vol_out_rates[node.id] = 0.0
                 self.edge_list_changed = True
-            elif(node.delete):
+            elif node.delete:
                 self.edge_list_changed = True
+                if node.id in self.vol_out_rates:#if a node is deleted, take it out of the respective dicts
+                    self.vol_out_rates.pop(node.id, None)
+                if node.id in self.vol_in_rates:
+                    self.vol_in_rates.pop(node.id, None)
                 for edgekey in self.edge_list_in:
-                    if(node.id in self.edge_list_in[edgekey]):
+                    if node.id in self.edge_list_in[edgekey]:
                         self.edge_list_in[edgekey].remove(node.id)
-                    if(edgekey == node.id):
-                        if(0 in self.edge_list_in[node.id]):
+                    if edgekey == node.id:
+                        if 0 in self.edge_list_in[node.id]:
                             self.connected_to_source = False
                         self.edge_list_in[edgekey] = []#empty it
                 for edgekey in self.edge_list_out:
-                    if(node.id in self.edge_list_out[edgekey]):
+                    if node.id in self.edge_list_out[edgekey]:
                         self.edge_list_out[edgekey].remove(node.id)
-                    if(edgekey == node.id):
-                        if(0 in self.edge_list_out[node.id]):
-                            self.connected_to_source = False
+                    if edgekey == node.id:
                         self.edge_list_out[edgekey] = []#empty it
 
         for key in graph.edges:
             edge = graph.edges[key]
-            if ((edge.idB in self.edge_list_in) and (edge.idA not in self.edge_list_in[edge.idB]) or len(self.edge_list_in[edge.idB]) == 0):#append if it's a new node to this one
+            if (edge.idB in self.edge_list_in) and (edge.idA not in self.edge_list_in[edge.idB]) or len(self.edge_list_in[edge.idB]) == 0:#append if it's a new node to this one
                 self.edge_list_in[edge.idB].append(edge.idA)
                 self.edge_list_changed = True
-            if ((edge.idA in self.edge_list_out) and (edge.idB not in self.edge_list_out[edge.idA]) or len(self.edge_list_out[edge.idA]) == 0):#append if it's a new node from this one
+            if (edge.idA in self.edge_list_out) and (edge.idB not in self.edge_list_out[edge.idA]) or len(self.edge_list_out[edge.idA]) == 0:#append if it's a new node from this one
                 self.edge_list_out[edge.idA].append(edge.idB)
                 self.edge_list_changed = True
-            if(edge.idA == 0):#source
+            if edge.idA == 0:#source
                 self.connected_to_source = True
-                self.edge_list_out[0].append(edge.idB)
 
     def update_out_rates(self, id):
         '''Called recursively to calculate volumetric out rates. Not displayed.'''
@@ -99,7 +102,7 @@ class Simulation:
                     val=0.0
                 vol_in_sum += val
             self.vol_in_rates[id] = vol_in_sum
-            self.vol_out_rates[id] = vol_in_sum / max(len(self.edge_list_out[id]), 1.0)
+            self.vol_out_rates[id] = vol_in_sum / max(len(self.edge_list_out[id]), 1)
         if(len(self.edge_list_out[id]) == 0):
             return
         for key in self.edge_list_out[id]:
@@ -167,17 +170,21 @@ class Simulation:
                     if(all_incoming_ready):
                         max_done_time_in = 0.0
                         for idx in self.edge_list_in[kinetics.id]:
-                            conc_out_sum += self.conc_out_reactant[idx] * self.vol_out_rates[kinetics.id] #len(self.edge_list_in[kinetics.id])
+                            val = self.vol_out_rates[kinetics.id]
+                            conc_out_sum += self.conc_out_reactant[idx] * val  #len(self.edge_list_in[kinetics.id])
                             #keeping track of product coming out of previous reactors
-                            conc_product += self.conc_out_product[idx] * self.vol_out_rates[kinetics.id]
-                            vol_out_sum += self.vol_out_rates[kinetics.id]
+                            conc_product += self.conc_out_product[idx] * val
+                            vol_out_sum += val
                             max_done_time_in = max(max_done_time_in, self.done_times[idx])
                         conc_out_sum /= vol_out_sum# (C1V1 + C2V2)/(V1+V2) = C_final
                         conc_product /= vol_out_sum
                         if(kinetics.label == 'cstr'):
                             self.done_times[kinetics.id] = 0.0
                         elif(kinetics.label == 'pfr'):
-                            self.done_times[kinetics.id] = max_done_time_in + self.reactor_volume/self.vol_in_rates[kinetics.id]
+                            if self.vol_in_rates[kinetics.id] > 0:
+                                self.done_times[kinetics.id] = max_done_time_in + self.reactor_volume/self.vol_in_rates[kinetics.id]
+                            else:
+                                self.done_times[kinetics.id] = max_done_time_in + self.reactor_volume/self.volumetric_feed_rates[1]
                         #print('conc_out_sum is {} and conc_product is {} for id {}'.format(conc_out_sum, conc_product, kinetics.id))
                         conc_limiting, self.ready_flags[kinetics.id] = self.calc_conc(initial_conc = conc_out_sum, reactor_type=kinetics.label,  k_eq=k_eq, k=k, id=kinetics.id)
                         #print('Conc limiting for reactor id {} is {}'.format(kinetics.id, conc_limiting))
@@ -200,10 +207,9 @@ class Simulation:
         '''The actual simulation for number of objects specified by the protobuf '''
         #graph = graph # update the graph object when we get it (see controller.py)
         self.update_edge_list(graph)
-        self.update_out_rates(0)#ONLY call this after update_edge_list() is done, and ONLY with id == 0
-        if(self.graph_time % 100 ==0):
-            print('update_out_rates was called and now out rates are: {}'.format(self.vol_out_rates))
+
         simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
+        self.update_out_rates(0)#ONLY call this after update_edge_list() is done, and ONLY with id == 0
         if(not self.connected_to_source ):
             self.start_plotting = False
             if( self.graph_time % 20 == 0):
@@ -211,8 +217,11 @@ class Simulation:
             return simulation_state
 
 
-        if(self.reactor_number != len(simulation_state.kinetics)):
+        if(self.reactor_number != len(simulation_state.kinetics)):#TODO: Find out why this is never(?) false...
             self.edge_list_changed = True
+        if(self.graph_time % 20 ==0):
+            print('at simulation time {}, edge_list_changed was {}, update_out_rates was called and now out rates are: {}'.format(simulation_state.time, self.edge_list_changed, self.vol_out_rates))
+            sys.stdout.flush()
 
         if(self.edge_list_changed):  #reset simulation when edges change
             self.reactor_number = len(simulation_state.kinetics)
