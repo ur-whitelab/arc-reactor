@@ -27,8 +27,8 @@ class Simulation:
         self.graph_time = 0
         self.time = 0
         self.edge_list_in = {}
-        self.edge_list_out = {}
-        self.vol_out_rates = {}
+        self.edge_list_out = {0:[]}
+        self.vol_out_rates = {0:self.volumetric_feed_rates[0]}
         self.vol_in_rates = {}
         self.connected_to_source = False
         self.edge_list_changed = False
@@ -48,14 +48,13 @@ class Simulation:
 
     def update_edge_list(self, graph):
         ''' Reads labels from the vision protobuf and makes a dictionary which records inward connections of each reactor'''
-        self.edge_list_out[0] = []
         for key in graph.nodes:
             node = graph.nodes[key]
             if (node.id not in self.edge_list_in and not node.delete) and (node.id != 999 and node.id != 0):#don't add for the conditions or source nodes; they never take in
                 self.edge_list_in[node.id] = []#new ID, make new lists for it
                 self.vol_in_rates[node.id] = 0.0
                 self.edge_list_changed = True
-            if (node.id not in self.edge_list_out and not node.delete) and (node.id != 999 and node.id != 0):#don't add for the conditions or source nodes; they never take in
+            if (node.id not in self.edge_list_out and not node.delete) and (node.id != 999):#don't add for the conditions node; it never takes in
                 self.edge_list_out[node.id] = []
                 self.vol_out_rates[node.id] = 0.0
                 self.edge_list_changed = True
@@ -179,7 +178,7 @@ class Simulation:
                         conc_out_sum /= vol_out_sum# (C1V1 + C2V2)/(V1+V2) = C_final
                         conc_product /= vol_out_sum
                         if(kinetics.label == 'cstr'):
-                            self.done_times[kinetics.id] = 0.0
+                            self.done_times[kinetics.id] = max_done_time_in + 0.0
                         elif(kinetics.label == 'pfr'):
                             if self.vol_in_rates[kinetics.id] > 0:
                                 self.done_times[kinetics.id] = max_done_time_in + self.reactor_volume/self.vol_in_rates[kinetics.id]
@@ -207,18 +206,23 @@ class Simulation:
         '''The actual simulation for number of objects specified by the protobuf '''
         #graph = graph # update the graph object when we get it (see controller.py)
         self.update_edge_list(graph)
-
+        if self.graph_time % 20 == 0:
+            print('edge_list_out is {}'.format(self.edge_list_out))
         simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
-        self.update_out_rates(0)#ONLY call this after update_edge_list() is done, and ONLY with id == 0
+
         if(not self.connected_to_source ):
             self.start_plotting = False
             if( self.graph_time % 20 == 0):
                 print('NOT CONNECTED TO SOURCE')
             return simulation_state
-
+        self.update_out_rates(0)#ONLY call this after update_edge_list() is done, and ONLY with id == 0
 
         if(self.reactor_number != len(simulation_state.kinetics)):#TODO: Find out why this is never(?) false...
             self.edge_list_changed = True
+            if(self.graph_time % 20 ==0):
+                print('at simulation time {}, and REACTOR NUMBER DOES NOT MATCH'.format(simulation_state.time, self.edge_list_changed, self.vol_out_rates))
+                sys.stdout.flush()
+
         if(self.graph_time % 20 ==0):
             print('at simulation time {}, edge_list_changed was {}, update_out_rates was called and now out rates are: {}'.format(simulation_state.time, self.edge_list_changed, self.vol_out_rates))
             sys.stdout.flush()
