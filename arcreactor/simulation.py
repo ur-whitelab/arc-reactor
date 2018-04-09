@@ -14,7 +14,9 @@ A + B <--> C + D
 Update: Now using Sabatier equation.
 CO2 + 4H2 -> CH4 + 2H2O
 Sabatier is a gas phase reaction and hence, cannot be conducted in a CSTR
-So now using: 2 HCl(aq) + Mg(OH)2(aq) → 2 H2O(ℓ) + MgCl2(aq)
+So now using: 2 HCl(aq) + Mg(OH)2(aq) <--> 2 H2O(ℓ) + MgCl2(aq)
+This reaction is aqueous and not exciting. So, switching now to friedel-craft reaction.
+Benzene + 3C2H5Br <--> 1,3,5-triethylbenzene + 3 HBr - First order in C2H5Br
 '''
 
 class Simulation:
@@ -38,10 +40,10 @@ class Simulation:
         self.start_plotting = False #flag to start the plots
         self.restart_plots = False
         #stoichiometry
-        self.a = 2
-        self.b = 1
+        self.a = 1
+        self.b = 3
         self.c = 1
-        self.d = 2
+        self.d = 3
         self.ready_flags = {}#these are for tracking when PFRs are finished reacting
         self.ready_flags[0] = True #Source is always ready!
         self.done_times = {}#A reactor only starts outputting if all its incoming edges are done
