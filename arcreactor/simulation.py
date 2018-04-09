@@ -13,6 +13,8 @@ A + B <--> C + D
 
 Update: Now using Sabatier equation.
 CO2 + 4H2 -> CH4 + 2H2O
+Sabatier is a gas phase reaction and hence, cannot be conducted in a CSTR
+So now using: 2 HCl(aq) + Mg(OH)2(aq) → 2 H2O(ℓ) + MgCl2(aq)
 '''
 
 class Simulation:
@@ -36,8 +38,8 @@ class Simulation:
         self.start_plotting = False #flag to start the plots
         self.restart_plots = False
         #stoichiometry
-        self.a = 1
-        self.b = 4
+        self.a = 2
+        self.b = 1
         self.c = 1
         self.d = 2
         self.ready_flags = {}#these are for tracking when PFRs are finished reacting
@@ -170,6 +172,7 @@ class Simulation:
                         max_done_time_in = 0.0
                         for idx in self.edge_list_in[kinetics.id]:
                             val = self.vol_out_rates[kinetics.id]
+                            #concentration of reactants entering the reactor
                             conc_out_sum += self.conc_out_reactant[idx] * val  #len(self.edge_list_in[kinetics.id])
                             #keeping track of product coming out of previous reactors
                             conc_product += self.conc_out_product[idx] * val
@@ -206,8 +209,8 @@ class Simulation:
         '''The actual simulation for number of objects specified by the protobuf '''
         #graph = graph # update the graph object when we get it (see controller.py)
         self.update_edge_list(graph)
-        if self.graph_time % 20 == 0:
-            print('edge_list_out is {}'.format(self.edge_list_out))
+        #if self.graph_time % 20 == 0:
+        #    print('edge_list_out is {}'.format(self.edge_list_out))
         simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
 
         if(not self.connected_to_source ):
@@ -219,13 +222,13 @@ class Simulation:
 
         if(self.reactor_number != len(simulation_state.kinetics)):#TODO: Find out why this is never(?) false...
             self.edge_list_changed = True
-            if(self.graph_time % 20 ==0):
-                print('at simulation time {}, and REACTOR NUMBER DOES NOT MATCH'.format(simulation_state.time, self.edge_list_changed, self.vol_out_rates))
-                sys.stdout.flush()
+            #if(self.graph_time % 20 ==0):
+            #    print('at simulation time {}, and REACTOR NUMBER DOES NOT MATCH'.format(simulation_state.time, self.edge_list_changed, self.vol_out_rates))
+            #    sys.stdout.flush()
 
-        if(self.graph_time % 20 ==0):
-            print('at simulation time {}, edge_list_changed was {}, update_out_rates was called and now out rates are: {}'.format(simulation_state.time, self.edge_list_changed, self.vol_out_rates))
-            sys.stdout.flush()
+        #if(self.graph_time % 20 ==0):
+        #    print('at simulation time {}, edge_list_changed was {}, update_out_rates was called and now out rates are: {}'.format(simulation_state.time, self.edge_list_changed, self.vol_out_rates))
+        #    sys.stdout.flush()
 
         if(self.edge_list_changed):  #reset simulation when edges change
             self.reactor_number = len(simulation_state.kinetics)
@@ -249,15 +252,16 @@ class Simulation:
             kinetics.pressure = P
         self.calc_outputs(id = 0, simulation_state = simulation_state, R = R, P = P)
         #start with ID zero to look for nodes connected to source
-
         #print('simulation_state.kinetics is {}'.format(simulation_state.kinetics))
         #print('the keys for conc_out are {}, and the keys for self.edge_list_in are {}'.format(conc_out.keys(), self.edge_list_in.keys()))
         #sys.stdout.flush()
-        for kinetics in simulation_state.kinetics:#TODO: change this loop to work "smartly" from source to ends... Recursion?
+        if self.graph_time %40 == 0:
+            print('product output conc is {}'.format(self.conc_out_product))
+        for kinetics in simulation_state.kinetics:
             i = kinetics.id
-            conc_limiting = self.conc_out_reactant[kinetics.id]
-            conc_out_product = self.conc_out_product[kinetics.id]  #taking into account the existing conc of products
-            conc = [conc_limiting, self.b / self.a * conc_limiting, conc_out_product, self.d / self.c * conc_out_product]
+            flow_rate_limiting = self.conc_out_reactant[kinetics.id] * self.vol_in_rates[kinetics.id]
+            flow_rate_out_product = self.conc_out_product[kinetics.id] * self.vol_in_rates[kinetics.id]  #taking into account the existing conc of products
+            conc = [flow_rate_limiting, self.b / self.a * flow_rate_limiting, flow_rate_out_product, self.d / self.c * flow_rate_out_product]
             for j in range(len(conc)):
                 kinetics.mole_fraction.append(float(conc[j]))
                 #if(simulation_state.time %5 == 0):
