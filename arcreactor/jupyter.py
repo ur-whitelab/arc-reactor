@@ -8,7 +8,7 @@ import networkx as nx
 from moviepy.editor import VideoClip
 from moviepy.video.io.bindings import mplfig_to_npimage
 
-LEGEND = [r'CO$_2$', r'H$_2$', r'CH$_4$', r'H$_2$O']
+LEGEND = [r'C$_6$H$_6$', r'C$_2$H$_5$Br', r'C$_6$H$_3$Br$_3$', r'HBr']
 
 
 class Reactors:
@@ -53,7 +53,7 @@ class Reactors:
 
         Parameters
         ----------
-            reactor_type : int 
+            reactor_type : int
                 The type of the reactor. You can access types with class variables: `reactors.CSTR` and `reactors.PFR`
             temperature : float, optional
                 The reactor temperature in Kelivn. Defaults to 300 K
@@ -82,7 +82,7 @@ class Reactors:
             source : int
                 The reactor id which will be the source. You receive this id as output from `add_reactor(...)`.
             destination : int
-                The reactor id for the destination.        
+                The reactor id for the destination.
         '''
         assert len(self.graph.nodes) > source and len(self.graph.nodes) > destination
         assert not self.graph.nodes[source].delete and not self.graph.nodes[destination].delete
@@ -172,7 +172,7 @@ class Reactors:
             fig : matplotlib.Figure, optional
                 Draw the reactors on a particular figure
         '''
-       
+
         if fig is None:
             fig, ax = plt.subplots()
         else:
