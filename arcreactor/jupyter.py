@@ -8,7 +8,7 @@ import networkx as nx
 from moviepy.editor import VideoClip
 from moviepy.video.io.bindings import mplfig_to_npimage
 
-LEGEND = [r'C$_6$H$_6$', r'C$_2$H$_5$Br', r'C$_6$H$_3$Br$_3$', r'HBr']
+LEGEND = [r'C$_6$H$_6$', r'C$_2$H$_5$Br', r'TEB', r'HBr']
 
 
 class Reactors:
