@@ -35,7 +35,7 @@ class Reactors:
         self.edge_ids = 0
         self._update_nxgraph()
         self._reset()
-        mpl.rcParams['font.size'] = 16
+        mpl.rcParams['font.size'] = 12
     def _reset(self):
         self.system = simulation.Simulation(0)
         self.state = Kinetics()
@@ -127,7 +127,7 @@ class Reactors:
             if n.delete:
                 continue
             if n.label == 'source':
-                colors.append('gray')
+                colors.append('tan')
                 labels[n.id] = 'Source'
             elif n.label == 'pfr':
                 colors.append('white')
@@ -178,7 +178,7 @@ class Reactors:
         else:
             ax = fig.gca()
         self._reset()
-        self._step(dt=0)
+        self._step(dt=1)
         for i in range(time):
             self._step()
         layout = self._layout_graph()
