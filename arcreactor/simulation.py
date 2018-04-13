@@ -257,8 +257,8 @@ class Simulation:
         #print('simulation_state.kinetics is {}'.format(simulation_state.kinetics))
         #print('the keys for conc_out are {}, and the keys for self.edge_list_in are {}'.format(conc_out.keys(), self.edge_list_in.keys()))
         #sys.stdout.flush()
-        if self.graph_time %40 == 0:
-            print('product output conc is {}'.format(self.conc_out_product))
+        # if self.graph_time %40 == 0:
+        #     print('product output conc is {}'.format(self.conc_out_product))
         for kinetics in simulation_state.kinetics:
             i = kinetics.id
             flow_rate_limiting = self.conc_out_reactant[kinetics.id] * self.vol_in_rates[kinetics.id]

@@ -8,7 +8,7 @@ import networkx as nx
 from moviepy.editor import VideoClip
 from moviepy.video.io.bindings import mplfig_to_npimage
 
-LEGEND = [r'C$_6$H$_6$', r'C$_2$H$_5$Br', r'TEB', r'HBr']
+LEGEND = [r'C$_6$H$_6$ mol/s', r'C$_2$H$_5$Br mol/s', r'TEB mol/s', r'HBr mol/s']
 
 
 class Reactors:
@@ -159,7 +159,7 @@ class Reactors:
                     center=layout[self.state.kinetics[i].id],
                     frame=True,
                     colors = colors,
-                    autopct = ['{:.2f}'.format(x) for x in self.state.kinetics[i].mole_fraction],
+                    autopct = lambda x: '{:.2f}'.format(x * sum(self.state.kinetics[i].mole_fraction)),
                     pctdistance  = 0.8)
     def plot_reactors(self, time = 0, fig = None):
         '''
