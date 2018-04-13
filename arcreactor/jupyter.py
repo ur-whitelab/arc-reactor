@@ -159,7 +159,7 @@ class Reactors:
                     center=layout[self.state.kinetics[i].id],
                     frame=True,
                     colors = colors,
-                    autopct = lambda x : '{:.0f}%'.format(x),
+                    autopct = ['{}mol/s'.format(x) for x in self.state.kinetics[i].mole_fraction],
                     pctdistance  = 0.8)
     def plot_reactors(self, time = 0, fig = None):
         '''
@@ -182,12 +182,12 @@ class Reactors:
         for i in range(time):
             self._step()
         layout = self._layout_graph()
-        self._plot_fracs(layout, ax, radius=25)
+        self._plot_fracs(layout, ax, radius=35)
         self._plot_graph(layout, ax)
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
         ax.legend(LEGEND)
-        ax.set_title('$t = {:.2f}$'.format(self.system.graph_time / 3.25))
+        ax.set_title('$t = {:.2f}s$'.format(int(self.system.graph_time / 3.25)))
         plt.show()
 
     @functools.lru_cache(maxsize=16)
