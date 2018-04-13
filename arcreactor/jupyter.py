@@ -127,7 +127,7 @@ class Reactors:
             if n.delete:
                 continue
             if n.label == 'source':
-                colors.append('tan')
+                colors.append('gray')
                 labels[n.id] = 'Source'
             elif n.label == 'pfr':
                 colors.append('white')
@@ -147,7 +147,7 @@ class Reactors:
         cmap = plt.get_cmap('Set2')
         colors = [cmap(i / (N - 1)) for i in range(N)]
         #plot source
-        ax.add_artist(mpl.patches.Circle(layout[0], radius, facecolor='darkgray'))
+        ax.add_artist(mpl.patches.Circle(layout[0], radius, facecolor='tan'))
         for i in range(len(self.state.kinetics)):
             #check for unconnected reactors
             if sum(self.state.kinetics[i].mole_fraction) < 0.1:
