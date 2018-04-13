@@ -35,7 +35,7 @@ class Reactors:
         self.edge_ids = 0
         self._update_nxgraph()
         self._reset()
-
+        mpl.rcParams['font.size'] = 16
     def _reset(self):
         self.system = simulation.Simulation(0)
         self.state = Kinetics()
@@ -144,7 +144,7 @@ class Reactors:
         ax.axis('equal')
         #set-up colors
         N = len(self.state.kinetics[0].mole_fraction)
-        cmap = plt.get_cmap('Accent')
+        cmap = plt.get_cmap('Set2')
         colors = [cmap(i / (N - 1)) for i in range(N)]
         #plot source
         ax.add_artist(mpl.patches.Circle(layout[0], radius, facecolor='darkgray'))
