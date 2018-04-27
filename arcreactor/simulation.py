@@ -23,6 +23,7 @@ class Simulation:
     '''Controls simulation of objects'''
     def __init__(self, start_time):
         #For demo purposes, the values are fixed
+        self.chemical_species = ['Benzene', 'EtBr', 'TEB', 'HBr']
         self.reactor_number = 0
         self.reactor_volume = 200            # m3
         self.volumetric_feed_rates = np.array([10, 10])     # m3/s
@@ -260,14 +261,18 @@ class Simulation:
         # if self.graph_time %40 == 0:
         #     print('product output conc is {}'.format(self.conc_out_product))
         for kinetics in simulation_state.kinetics:
-            i = kinetics.id
             flow_rate_limiting = self.conc_out_reactant[kinetics.id] * self.vol_in_rates[kinetics.id]
             flow_rate_out_product = self.conc_out_product[kinetics.id] * self.vol_in_rates[kinetics.id]  #taking into account the existing conc of products
-            conc = [flow_rate_limiting, self.b / self.a * flow_rate_limiting, flow_rate_out_product, self.d / self.c * flow_rate_out_product]
+            conc = [flow_rate_limiting, self.b / self.a * flow_rate_limiting, flow_rate_out_product, self.d / self.c * flow_rate_out_product] 
+            mole_frac = [item/sum(conc) for item in conc]
+            #total_moles_reactants = (self.a + self.b) * concentration_out_reactant[kinetic.id]
+            #mole_fraction = [self.a * conc_out_reactant[kinetic.id], self.b/(self.a + self.b) * conc_out_reactant[kinetic.id], self.c ]
             for j in range(len(conc)):
-                kinetics.mole_fraction.append(float(conc[j]))
+                kinetics.mole_fraction.append(float(mole_frac[j]))
                 #if(simulation_state.time %5 == 0):
                     #print('The {}th mole fractions are {}'.format(i, kinetics.mole_fraction))
+                kinetics.molar_flow_rate.append(float(conc[j]))
+                kinetics.chemical_species.append(self.chemical_species[j])
         simulation_state.time = self.time
         return simulation_state
 
