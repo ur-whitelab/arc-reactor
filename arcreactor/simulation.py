@@ -358,7 +358,7 @@ def pbr(self, initial_conc, t, k_eq = 5, k = 0.1):
         float
                 Final concentration of the limiting reactant when it leaves the reactor
         '''
-        conversion = min((np.exp(self.reactor_volume * k * (1 + self.c / self.a / k_eq)/self.vol_in_rates[kinetics.id]) + 1)/(1 + self.c / self.a / k_eq), 1) 
+        conversion = min((math.exp(self.reactor_volume * k * (1 + self.c / self.a / k_eq)/self.vol_in_rates[kinetics.id]) + 1)/(1 + self.c / self.a / k_eq), 1) 
         #print('Conversion from pbr is {} at {}'.format(conversion, t))
         out_conc_lr = initial_conc * (1.0 - conversion)
         #print('A left in pbr is {}'.format(out_conc_lr))
