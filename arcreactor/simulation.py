@@ -216,6 +216,13 @@ class Simulation:
         #    print('edge_list_out is {}'.format(self.edge_list_out))
         simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
 
+        if (simulation_state.chemical_species is None): 
+            for i in range(len(self.chemical_species)):
+                simulation_state.chemical_species.append(self.chemical_species[i])
+        #TODO: Depending on how the selection of different reactions works within the code once updated within arc-board,
+        #it may be necessary to add an "else" part of this if statement. This is because the simulation_state.chemical_species
+        #will not be None, but it will potentially not be the correct chemical species either.
+
         if(not self.connected_to_source ):
             self.start_plotting = False
             if( self.graph_time % 20 == 0):
@@ -270,7 +277,6 @@ class Simulation:
                 #if(simulation_state.time %5 == 0):
                     #print('The {}th mole fractions are {}'.format(i, kinetics.mole_fraction))
                 kinetics.molar_flow_rate.append(float(molar_flow[j]))
-                kinetics.chemical_species.append(self.chemical_species[j])
         simulation_state.time = self.time
         return simulation_state
 
