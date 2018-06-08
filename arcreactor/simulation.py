@@ -216,7 +216,7 @@ class Simulation:
         #    print('edge_list_out is {}'.format(self.edge_list_out))
         simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
 
-        if (simulation_state.chemical_species is None): 
+        if (len(simulation_state.chemical_species) == 0): 
             for i in range(len(self.chemical_species)):
                 simulation_state.chemical_species.append(self.chemical_species[i])
         #TODO: Depending on how the selection of different reactions works within the code once updated within arc-board,
@@ -271,7 +271,10 @@ class Simulation:
             flow_rate_limiting = self.conc_out_reactant[kinetics.id] * self.vol_in_rates[kinetics.id]
             flow_rate_out_product = self.conc_out_product[kinetics.id] * self.vol_in_rates[kinetics.id]  #taking into account the existing conc of products
             molar_flow = [flow_rate_limiting, self.b / self.a * flow_rate_limiting, flow_rate_out_product, self.d / self.c * flow_rate_out_product] 
-            mole_frac = [item/sum(molar_flow) for item in molar_flow]
+            if all([i == 0 for i in molar_flow]):
+                mole_frac = [0*item for item in molar_flow]
+            else:
+                mole_frac = [item/sum(molar_flow) for item in molar_flow]
             for j in range(len(molar_flow)):
                 kinetics.mole_fraction.append(float(mole_frac[j]))
                 #if(simulation_state.time %5 == 0):
@@ -343,29 +346,4 @@ class Simulation:
         #print('Conversion from pfr is {} at {}'.format(conversion, t))
         out_conc_lr = initial_conc*(1.0 - conversion)
         #print('A left in pfr is {}'.format(out_conc_lr))
-        return (out_conc_lr, ready)
-
-def pbr(self, initial_conc, t, k_eq = 5, k = 0.1):
-        '''Calculates concentrations for a first order, reversible reaction in a PBR.
-
-        Parameters
-        ----------
-        initial_conc : float
-                    Concentration of limiting reactant entering the reactor
-        t: int
-            Time in simulation at which concentration needs to be calculated
-        k_eq : float
-            Denotes equilibrium concentration of the reaction
-        k : float
-            Denotes the reaction constant for the forward reaction
-
-        Returns
-        -------
-        float
-                Final concentration of the limiting reactant when it leaves the reactor
-        '''
-        conversion = min((math.exp(self.reactor_volume * k * (1 + self.c / self.a / k_eq)/self.vol_in_rates[kinetics.id]) + 1)/(1 + self.c / self.a / k_eq), 1) 
-        #print('Conversion from pbr is {} at {}'.format(conversion, t))
-        out_conc_lr = initial_conc * (1.0 - conversion)
-        #print('A left in pbr is {}'.format(out_conc_lr))
         return (out_conc_lr, ready)
