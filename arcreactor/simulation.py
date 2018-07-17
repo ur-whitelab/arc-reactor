@@ -24,6 +24,8 @@ class Simulation:
     def __init__(self, start_time):
         #For demo purposes, the values are fixed
         self.chemical_species = ['Benzene', 'EtBr', 'TEB', 'HBr']
+        self.liquid_or_gas = True #True (default) = aqueous rxn (CSTR), False = gaseous rxn (PBR). 
+        #TODO: ENSURE THAT THE liquid_or_gas BOOLEAN FUNCTIONS AS EXPECTED ONCE REACTION DATABASE CREATED.
         self.reactor_number = 0
         self.reactor_volume = 200            # m3
         self.volumetric_feed_rates = np.array([10, 10])     # m3/s
@@ -141,8 +143,12 @@ class Simulation:
 
     def calc_conc(self, initial_conc, reactor_type, k_eq, k, id):
         conc0 = self.molar_feed_rate / self.volumetric_feed_rates #molar_feed_rate is a list
-        if(reactor_type == 'cstr'):
-            conc_limiting, ready = self.cstr(initial_conc, t=self.time, k_eq = k_eq, k = k)
+        if(reactor_type == 'cstr'): 
+            #'cstr' is passed from arc-vision, but we need the bool check to determine whether or not we actually ought to use cstr or pbr. 
+            if (self.liquid_or_gas):
+                conc_limiting, ready = self.cstr(initial_conc, t=self.time, k_eq = k_eq, k = k)
+            else:
+                conc_limiting, ready = self.pbr(initial_conc, t=self.time, k_eq = k_eq, k = k)
         elif(reactor_type == 'pfr'):
             conc_limiting, ready = self.pfr(initial_conc, t=self.time, k_eq = k_eq, k = k, done_time = self.done_times[id])
         else:
