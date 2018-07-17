@@ -24,6 +24,8 @@ class Simulation:
     def __init__(self, start_time):
         #For demo purposes, the values are fixed
         self.chemical_species = ['Benzene', 'EtBr', 'TEB', 'HBr']
+        self.liquid_or_gas = True #True (default) = aqueous rxn (CSTR), False = gaseous rxn (PBR). 
+        #TODO: ENSURE THAT THE liquid_or_gas BOOLEAN FUNCTIONS AS EXPECTED ONCE REACTION DATABASE CREATED.
         self.reactor_number = 0
         self.reactor_volume = 200            # m3
         self.volumetric_feed_rates = np.array([10, 10])     # m3/s
@@ -141,8 +143,12 @@ class Simulation:
 
     def calc_conc(self, initial_conc, reactor_type, k_eq, k, id):
         conc0 = self.molar_feed_rate / self.volumetric_feed_rates #molar_feed_rate is a list
-        if(reactor_type == 'cstr'):
-            conc_limiting, ready = self.cstr(initial_conc, t=self.time, k_eq = k_eq, k = k)
+        if(reactor_type == 'cstr'): 
+            #'cstr' is passed from arc-vision, but we need the bool check to determine whether or not we actually ought to use cstr or pbr. 
+            if (self.liquid_or_gas):
+                conc_limiting, ready = self.cstr(initial_conc, t=self.time, k_eq = k_eq, k = k)
+            else:
+                conc_limiting, ready = self.pbr(initial_conc, t=self.time, k_eq = k_eq, k = k)
         elif(reactor_type == 'pfr'):
             conc_limiting, ready = self.pfr(initial_conc, t=self.time, k_eq = k_eq, k = k, done_time = self.done_times[id])
         else:
@@ -276,7 +282,7 @@ class Simulation:
 
 
     def cstr(self, initial_conc, t, k_eq = 5, k = 0.1):
-        '''Calculates concentrations for a first order reaction in a CSTR.
+        '''Calculates concentrations for a first order, reversible reaction in a CSTR.
 
         Parameters
         ----------
@@ -287,15 +293,15 @@ class Simulation:
         k_eq : float
             Denotes equilibrium concentration of the reaction
         k : float
-            Denotes the reaction constant for the reaction
+            Denotes the reaction constant for the forward reaction
 
         Returns
         -------
         float
             Final concentration of the limiting reactor when it leaves the reactor
         '''
-        def rate(conv, t):
-           return -k* initial_conc * (1 - (1 + self.c / self.a /k_eq)*conv)
+        #def rate(conv, t):
+        #   return -k* initial_conc * (1 - (1 + self.c / self.a /k_eq)*conv)
         rv = self.reactor_volume #m3
         fa0 = self.molar_feed_rate[0] #mol/s
         conversion = min(rv * k * initial_conc/(fa0 + k* rv * initial_conc + (self.c / self.a * k * rv * initial_conc)/k_eq), 1.0)
@@ -306,7 +312,7 @@ class Simulation:
         return (out_conc_lr, ready)
 
     def pfr(self, initial_conc, t, k_eq = 5, k = 0.1, done_time = None):
-        '''Calculates concentrations for a first order reaction in a PFR.
+        '''Calculates concentrations for a first order, reversible reaction in a PFR.
 
         Parameters
         ----------
@@ -317,7 +323,7 @@ class Simulation:
         k_eq : float
             Denotes equilibrium concentration of the reaction
         k : float
-            Denotes the reaction constant for the reaction
+            Denotes the reaction constant for the forward reaction
 
         Returns
         -------
@@ -326,8 +332,8 @@ class Simulation:
         '''
         if(done_time is None):
             done_time = self.reactor_volume/self.volumetric_feed_rates[1]
-        def rate(conv, t):#must pass in start time.
-            return k * initial_conc*(1 - (1 + self.c / self.a /k_eq) * conv)
+        #def rate(conv, t):
+        #    return -k * initial_conc*(1 - (1 + self.c / self.a /k_eq) * conv)
         #conversion = min(si.odeint(rate, 0.0001, np.arange(0, 3600, 3600*25)), 1.0)  # ~25fps
         time = min(done_time, self.time/3.25)
         ready = False
@@ -337,4 +343,29 @@ class Simulation:
         #print('Conversion from pfr is {} at {}'.format(conversion, t))
         out_conc_lr = initial_conc*(1.0 - conversion)
         #print('A left in pfr is {}'.format(out_conc_lr))
+        return (out_conc_lr, ready)
+
+def pbr(self, initial_conc, t, k_eq = 5, k = 0.1):
+        '''Calculates concentrations for a first order, reversible reaction in a PBR.
+
+        Parameters
+        ----------
+        initial_conc : float
+                    Concentration of limiting reactant entering the reactor
+        t: int
+            Time in simulation at which concentration needs to be calculated
+        k_eq : float
+            Denotes equilibrium concentration of the reaction
+        k : float
+            Denotes the reaction constant for the forward reaction
+
+        Returns
+        -------
+        float
+                Final concentration of the limiting reactant when it leaves the reactor
+        '''
+        conversion = min((math.exp(self.reactor_volume * k * (1 + self.c / self.a / k_eq)/self.vol_in_rates[kinetics.id]) + 1)/(1 + self.c / self.a / k_eq), 1) 
+        #print('Conversion from pbr is {} at {}'.format(conversion, t))
+        out_conc_lr = initial_conc * (1.0 - conversion)
+        #print('A left in pbr is {}'.format(out_conc_lr))
         return (out_conc_lr, ready)
