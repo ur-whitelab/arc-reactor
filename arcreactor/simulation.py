@@ -23,7 +23,8 @@ class Simulation:
     '''Controls simulation of objects'''
     def __init__(self, start_time):
         #For demo purposes, the values are fixed
-        self.chemical_species = ['Benzene', 'EtBr', 'TEB', 'HBr']
+        #self.chemical_species = ['Benzene', 'EtBr', 'TEB', 'HBr']
+        self.chemical_species = ['A', 'B']#, '', '']
         self.reactor_number = 0
         self.volumetric_feed_rates = np.array([10, 10])     # dm3/s
         self.molar_feed_rate = np.array([1, 1])           # mol/s
@@ -148,7 +149,8 @@ class Simulation:
         elif(reactor_type == 'pfr'):
             conc_limiting, ready = self.pfr(initial_conc, V = V,  k_eq = k_eq, k = k, done_time = self.done_times[id])
         elif(reactor_type == 'pbr'):
-            conc_limiting, ready = self.pbr(initial_conc, V = V,  k_eq = k_eq, k = k)
+            #conc_limiting, ready = self.pbr(initial_conc, V = V,  k_eq = k_eq, k = k)    for PBR
+            conc_limiting, ready = self.pbr(initial_conc, R = 8.314, k_eq = k_eq, k = k)    #for BR
         else:
             conc_limiting = conc0[0]
         #print(conc_limiting)
@@ -164,8 +166,10 @@ class Simulation:
                 if(kinetics.temperature != 0):
                     T = kinetics.temperature
                     e_act = 47000  #kJ/kmol
-                    k_eq = 100000 * math.e ** (-33.78*(T-298)/T)    #equilibrium constant
-                    k = 5*10**6 * math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
+                    k_eq = 0.01 * math.exp(15000 /(R * T))#100000 * math.exp(-33.78*(T-298)/T)    #equilibrium constant
+                    #k = 5*10**6 * math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
+                    k = 100*math.exp(-20000/(R*T))
+                    #k_b = #10000*math.exp(-35000/(R*T))
                     V = kinetics.pressure #this is actually volume. TODO: Change protobuf.
                     #find the limiting concentration for the ith reactor
                     #conc_limiting = self.calc_conc(sum([conc_out[idx] for idx in self.edge_list_in[i]]), kinetics.label, kinetics.id, k_eq, k)
@@ -188,7 +192,7 @@ class Simulation:
                             max_done_time_in = max(max_done_time_in, self.done_times[idx])
                         conc_out_sum /= vol_out_sum# (C1V1 + C2V2)/(V1+V2) = C_final
                         conc_product /= vol_out_sum
-                        if(kinetics.label == 'cstr' or kinetics.label == 'pbr'):
+                        if(kinetics.label == 'cstr'): #or kinetics.label == 'pbr'):
                             self.done_times[kinetics.id] = max_done_time_in + 0.0
                         elif(kinetics.label == 'pfr'):
                             if self.vol_in_rates[kinetics.id] > 0:
@@ -234,8 +238,8 @@ class Simulation:
 
         if(not self.connected_to_source):
             self.start_plotting = False
-            if( self.graph_time % 20 == 0):
-                print('NOT CONNECTED TO SOURCE')
+            #if( self.graph_time % 20 == 0):
+            #    print('NOT CONNECTED TO SOURCE')
             return simulation_state
         self.update_out_rates(0)#ONLY call this after update_edge_list() is done, and ONLY with id == 0
 
@@ -277,7 +281,8 @@ class Simulation:
         for kinetics in simulation_state.kinetics:
             flow_rate_limiting = self.conc_out_reactant[kinetics.id] * self.vol_in_rates[kinetics.id]
             flow_rate_out_product = self.conc_out_product[kinetics.id] * self.vol_in_rates[kinetics.id]  #taking into account the existing conc of products
-            molar_flow = [flow_rate_limiting, self.b / self.a * flow_rate_limiting, flow_rate_out_product, self.d / self.c * flow_rate_out_product]
+            #molar_flow = [flow_rate_limiting, self.b / self.a * flow_rate_limiting, flow_rate_out_product, self.d / self.c * flow_rate_out_product]
+            molar_flow = [flow_rate_limiting, flow_rate_out_product]
             if all([i == 0 for i in molar_flow]):
                 mole_frac = [0*item for item in molar_flow]
             else:
@@ -347,6 +352,31 @@ class Simulation:
         #print('A left in pfr is {}'.format(out_conc_lr))
         return (out_conc_lr, ready)
 
+    def pbr(self, initial_conc, R, k_eq = 5., k = 0.1): ##NOTE: This is actually for a BATCH REACTOR.
+        '''Calculates concentrations for a first order, reversible reaction in a BR.
+        Parameters
+        ----------
+        initial_conc : float
+            Concentration of limiting reactant entering the reactor
+        k : float
+            Denotes the reaction constant for the forward reaction
+        k_eq : float
+            Denotes the equilibrium constant for the reaction
+        Returns
+        -------
+        float
+                Final concentration of the limiting reactant when it leaves the reactor
+        '''
+        self.time = self.graph_time - self.start_time
+        t = self.time #seconds
+        alpha = (1. + 1./k_eq) #for tidyness
+
+        conversion =  1./alpha * ( 1. - math.exp(-alpha * k * t) )
+        #print('Conversion from pbr is {} at {}'.format(conversion, t))
+        out_conc_lr = initial_conc * (1.0 - conversion)
+        #print('A left in pbr is {}'.format(out_conc_lr))
+        return (out_conc_lr, False) # Batch reactors never pump out
+
     # def pbr(self, initial_conc, V, k_eq = 5, k = 0.1):
     #     '''Calculates concentrations for a first order, reversible reaction in a PBR.
     #     Parameters
@@ -372,3 +402,4 @@ class Simulation:
     #     out_conc_lr = initial_conc * (1.0 - conversion)
     #     #print('A left in pbr is {}'.format(out_conc_lr))
     #     return (out_conc_lr, ready)
+
