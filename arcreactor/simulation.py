@@ -96,7 +96,7 @@ class Simulation:
     def update_out_rates(self, id):
         '''Called recursively to calculate volumetric out rates. Not displayed.'''
         if(id == 0):
-            self.vol_out_rates[id] = self.volumetric_feed_rates[0]
+            self.vol_out_rates[id] = self.volumetric_feed_rates[0] / float(len(self.edge_list_out[id]))
         else:
             vol_in_sum = 0.0
             for node in self.edge_list_in[id]:
