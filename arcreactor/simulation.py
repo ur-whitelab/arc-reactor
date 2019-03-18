@@ -1,4 +1,4 @@
-import numpy as np
+zimport numpy as np
 import datetime as dt
 import time
 import scipy.integrate as si
@@ -26,7 +26,7 @@ class Simulation:
         #self.chemical_species = ['Benzene', 'EtBr', 'TEB', 'HBr']
         self.chemical_species = ['A', 'B']#, '', '']
         self.reactor_number = 0
-        self.volumetric_feed_rates = np.array([10, 10])     # dm3/s
+        self.volumetric_feed_rates = np.array([10, 10])   # dm3/s, i.e. L/s
         self.molar_feed_rate = np.array([1, 1])           # mol/s
         self.start_time = start_time
         self.graph_time = 0
@@ -41,10 +41,10 @@ class Simulation:
         self.start_plotting = False #flag to start the plots
         self.restart_plots = False
         #stoichiometry
-        self.a = 1
-        self.b = 3
-        self.c = 1
-        self.d = 3
+        self.a = 1 #reactant 1
+        self.b = 0 #reactant 2
+        self.c = 1 #product 1
+        self.d = 0 #product 2
         self.ready_flags = {}#these are for tracking when PFRs are finished reacting
         self.ready_flags[0] = True #Source is always ready!
         self.done_times = {}#A reactor only starts outputting if all its incoming edges are done
@@ -342,12 +342,11 @@ class Simulation:
 
         if(done_time is None):
             done_time = V/self.volumetric_feed_rates[1]
-        time = min(done_time, self.time/3.25)
+        time = min(done_time, self.time/3.25) #divide by 3.25 to arbitrarily accelerate display
         ready = False
         if(self.time/3.25 >= done_time):
             ready = True
-        conversion = min((k_eq - k_eq * math.exp( -time * k * (self.c/self.a + k_eq) / k_eq))/(k_eq + self.c/self.a), 1) #using derived formula; divide by 3.25 to go from FPS to accelerated seconds
-        #print('Conversion from pfr is {} at {}'.format(conversion, t))
+        conversion = min(k_eq  / (k_eq + self.c/self.a) * (1. - math.exp( -time * k * (k_eq / ( self.c/self.a + k_eq )))), 1.)
         out_conc_lr = initial_conc*(1.0 - conversion)
         #print('A left in pfr is {}'.format(out_conc_lr))
         return (out_conc_lr, ready)
@@ -367,7 +366,6 @@ class Simulation:
         float
                 Final concentration of the limiting reactant when it leaves the reactor
         '''
-        self.time = self.graph_time - self.start_time
         t = self.time #seconds
         alpha = (1. + 1./k_eq) #for tidyness
 
