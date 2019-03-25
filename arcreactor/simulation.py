@@ -162,13 +162,10 @@ class Simulation:
                 if(kinetics.temperature != 0):
                     T = kinetics.temperature
                     e_act = 47000  #kJ/kmol
-                    k_eq = 0.01 * math.exp(15000 /(R * T))#100000 * math.exp(-33.78*(T-298)/T)    #equilibrium constant
-                    #k = 5*10**6 * math.exp(-e_act / (R * T))      # Rate constant, time dependence needs to be added
+                    k_eq = 0.01 * math.exp(15000 /(R * T))#equilibrium constant
                     k = 100*math.exp(-20000/(R*T))
-                    #k_b = #10000*math.exp(-35000/(R*T))
                     V = kinetics.pressure #this is actually volume. TODO: Change protobuf.
                     #find the limiting concentration for the ith reactor
-                    #conc_limiting = self.calc_conc(sum([conc_out[idx] for idx in self.edge_list_in[i]]), kinetics.label, kinetics.id, k_eq, k)
                     conc_in_sum = 0.0 # sum of incoming concentrations (conc_out of each incoming rxr)
                     conc_product = 0.0
                     vol_in_sum = 0.0 # sum of incoming concentrations (vol_out_rate of each incoming rxr)
@@ -181,7 +178,7 @@ class Simulation:
                         for idx in self.edge_list_in[kinetics.id]:
                             val = self.vol_out_rates[idx]
                             #concentration of reactants entering the reactor
-                            conc_in_sum += self.conc_out_reactant[idx] * val  #len(self.edge_list_in[kinetics.id])
+                            conc_in_sum += self.conc_out_reactant[idx] * val
                             #keeping track of product coming out of previous reactors
                             conc_product += self.conc_out_product[idx] * val
                             vol_in_sum += val
@@ -224,8 +221,6 @@ class Simulation:
         if (len(simulation_state.chemical_species) == 0):
             for i in range(len(self.chemical_species)):
                 simulation_state.chemical_species.append(self.chemical_species[i])
-        # for i in range(len(self.chemical_species)):
-        #     simulation_state.chemical_species[i] = str(self.chemical_species[i])
         #TODO: Depending on how the selection of different reactions works within the code once updated within arc-board,
         #it may be necessary to add an "else" part of this if statement. This is because the simulation_state.chemical_species
         #will not be None, but it will potentially not be the correct chemical species either.
@@ -319,6 +314,7 @@ class Simulation:
         ready = False
         if(self.time/3.25 >= done_time):
             ready = True
+        #This conversion is ONLY for this reactor, not cumulative.
         conversion = min(k_eq  / (k_eq + self.c/self.a) * (1. - math.exp( -time * k * (( self.c/self.a + k_eq ) / k_eq) ) ), 1.)
         out_conc_lr = initial_conc*(1.0 - conversion)
         return (out_conc_lr, ready)
