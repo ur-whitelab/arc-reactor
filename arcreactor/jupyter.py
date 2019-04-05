@@ -140,8 +140,8 @@ class Reactors:
                 colors.append('black')
                 labels[n.id] = 'CSTR'
             else:
-                color.append('brown')
-                labels[n.id] = 'pbr'
+                colors.append('brown')
+                labels[n.id] = 'BATCH'
         nx.draw_networkx_nodes(self.nxgraph, pos=layout, ax=ax, node_size=radius,
                                      node_color=colors)
         nx.draw_networkx_edges(self.nxgraph, pos=layout, ax=ax)
@@ -185,7 +185,7 @@ class Reactors:
         else:
             ax = fig.gca()
         self._reset()
-        self._step(dt=1)
+        self._step(dt=100)
         for i in range(time):
             self._step()
         layout = self._layout_graph()
