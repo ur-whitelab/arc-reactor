@@ -136,7 +136,7 @@ class Reactors:
             elif n.label == 'pfr':
                 colors.append('white')
                 labels[n.id] = 'PFR'
-            else:
+            elif n.label == 'cstr':
                 colors.append('black')
                 labels[n.id] = 'CSTR'
             else:
