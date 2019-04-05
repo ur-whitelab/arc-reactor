@@ -41,10 +41,10 @@ class Reactors:
         self.system = simulation.Simulation(0)
         self.state = Kinetics()
 
-    def _step(self, dt=100):    #instantaneous visualization
+    def _step(self, dt=100):
         tmp_graph = copy.copy(self.graph)
         tmp_state = copy.copy(self.state)
-        self.system.graph_time += int(dt*5)
+        self.system.graph_time += int(dt)
         loop = asyncio.get_event_loop()
         self.state = loop.run_until_complete(self.system.calculate(tmp_state, tmp_graph))
 
@@ -140,8 +140,8 @@ class Reactors:
                 colors.append('black')
                 labels[n.id] = 'CSTR'
             else:
-                color.append('brown')
-                labels[n.id] = 'pbr'
+                colors.append('brown')
+                labels[n.id] = 'BATCH'
         nx.draw_networkx_nodes(self.nxgraph, pos=layout, ax=ax, node_size=radius,
                                      node_color=colors)
         nx.draw_networkx_edges(self.nxgraph, pos=layout, ax=ax)
@@ -160,7 +160,6 @@ class Reactors:
             if sum(self.state.kinetics[i].mole_fraction) < 0.1:
                 ax.add_artist(mpl.patches.Circle(layout[self.state.kinetics[i].id], radius, edgecolor='darkgray', facecolor='white'))
             else:
-                #why do things not add up to 1 sometimes?
                 plt.pie([x / sum(self.state.kinetics[i].mole_fraction) for x in self.state.kinetics[i].mole_fraction],
                     radius=radius,
                     center=layout[self.state.kinetics[i].id],
@@ -168,7 +167,7 @@ class Reactors:
                     colors = colors,
                     autopct = lambda x: '{:.2f}'.format(x/100. * sum(self.state.kinetics[i].mole_fraction)),
                     pctdistance  = 0.8)
-    def plot_reactors(self, time = 0, fig = None):
+    def plot_reactors(self, time = 100, fig = None):
         '''
         Plot the reactors and their mole fractions at the given time
 
@@ -185,7 +184,7 @@ class Reactors:
         else:
             ax = fig.gca()
         self._reset()
-        self._step(dt=1)
+        self._step()
         for i in range(time):
             self._step()
         layout = self._layout_graph()
@@ -194,11 +193,11 @@ class Reactors:
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
         ax.legend(LEGEND)
-        ax.set_title('$t = {:.2f}s$'.format(int(self.system.graph_time / 5)))
+        # ax.set_title('$t = {:.2f}s$'.format(int(self.system.graph_time / 5)))
         plt.show()
 
     @functools.lru_cache(maxsize=16)
-    def animate_reactors(self, time, fps = 30):
+    def animate_reactors(self, time = 100, fps = 30):
         '''
         Plot the reactors and their mole fractions up to the given time in an animation
 
@@ -217,7 +216,7 @@ class Reactors:
         self._reset()
 
         layout = self._layout_graph()
-        self._step(0)
+        self._step()
 
         duration = time / fps + 3
 
@@ -229,7 +228,7 @@ class Reactors:
             self._plot_fracs(layout, ax, radius=25)
             self._plot_graph(layout, ax)
             ax.legend(LEGEND)
-            ax.set_title('$t = {:.2f}$'.format(self.system.graph_time / 5))
+            # ax.set_title('$t = {:.2f}$'.format(self.system.graph_time / 5))
             return mplfig_to_npimage(fig)
 
         animation = VideoClip(draw, duration=duration)
