@@ -8,7 +8,7 @@ import networkx as nx
 from moviepy.editor import VideoClip
 from moviepy.video.io.bindings import mplfig_to_npimage
 
-LEGEND = [r'C$_6$H$_6$ mol/s', r'C$_2$H$_5$Br mol/s', r'TEB mol/s', r'HBr mol/s']
+LEGEND = [r'ethylbenzene mol/s', r'm-xylene mol/s'] #, r'TEB mol/s', r'HBr mol/s']
 
 
 class Reactors:
@@ -47,7 +47,7 @@ class Reactors:
         loop = asyncio.get_event_loop()
         self.state = loop.run_until_complete(self.system.calculate(tmp_state, tmp_graph))
 
-    def add_reactor(self, reactor_type, temperature = 300):
+    def add_reactor(self, reactor_type, temperature = 300, volume = 15):
         '''
         Add the given reactor type and optionally temperature.
 
@@ -57,6 +57,8 @@ class Reactors:
                 The type of the reactor. You can access types with class variables: `reactors.CSTR` and `reactors.PFR`
             temperature : float, optional
                 The reactor temperature in Kelivn. Defaults to 300 K
+            volume : int, optional
+                The reactor volume in litres. Defaults to 15 L.
         Returns
         ---------
         int
@@ -68,6 +70,7 @@ class Reactors:
         node.id = self.node_ids
         node.label = reactor_type
         node.weight.append(temperature)
+        node.weight.append(volume)
         self.node_ids += 1
         node.delete = False
         self._update_nxgraph()
@@ -144,7 +147,7 @@ class Reactors:
         ax.axis('equal')
         #set-up colors
         N = len(self.state.kinetics[0].mole_fraction)
-        cmap = plt.get_cmap('Set2')
+        cmap = plt.get_cmap('Set3')
         colors = [cmap(i / (N - 1)) for i in range(N)]
         #plot source
         ax.add_artist(mpl.patches.Circle(layout[0], radius, facecolor='tan'))

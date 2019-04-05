@@ -166,6 +166,7 @@ class Simulation:
                     k = 100*math.exp(-20000/(R*T))
                     V = kinetics.pressure #this is actually volume. TODO: Change protobuf.
                     #find the limiting concentration for the ith reactor
+                    #conc_limiting = self.calc_conc(sum([conc_out[idx] for idx in self.edge_list_in[i]]), kinetics.label, kinetics.id, k_eq, k)
                     conc_in_sum = 0.0 # sum of incoming concentrations (conc_out of each incoming rxr)
                     conc_product = 0.0
                     vol_in_sum = 0.0 # sum of incoming concentrations (vol_out_rate of each incoming rxr)
@@ -178,7 +179,7 @@ class Simulation:
                         for idx in self.edge_list_in[kinetics.id]:
                             val = self.vol_out_rates[idx]
                             #concentration of reactants entering the reactor
-                            conc_in_sum += self.conc_out_reactant[idx] * val
+                            conc_in_sum += self.conc_out_reactant[idx] * val  #len(self.edge_list_in[kinetics.id])
                             #keeping track of product coming out of previous reactors
                             conc_product += self.conc_out_product[idx] * val
                             vol_in_sum += val
