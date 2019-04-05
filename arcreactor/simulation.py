@@ -134,8 +134,8 @@ class Simulation:
                         simulation_state.kinetics[-1].temperature = node.weight[0]#T is always the first in this repeat field
                         simulation_state.kinetics[-1].pressure = node.weight[1] #actually is volume TODO: change protobuf.
                     else:
-                        simulation_state.kinetics[-1].temperature = 400  #default
-                        simulation_state.kinetics[-1].pressure = 200 #default; actually is volume. TODO: change protobuf.
+                        simulation_state.kinetics[-1].temperature = 393  #default
+                        simulation_state.kinetics[-1].pressure = 273 #default; actually is volume. TODO: change protobuf.
         return simulation_state
 
 
@@ -315,9 +315,10 @@ class Simulation:
 
         if(done_time is None):
             done_time = V/self.volumetric_feed_rates[1]
-        time = min(done_time, self.time/3.25) #divide by 3.25 to arbitrarily accelerate display
+        factor = 5.0 # 3.25
+        time = min(done_time, self.time/factor) #divide by factor to arbitrarily accelerate display
         ready = False
-        if(self.time/3.25 >= done_time):
+        if(self.time/factor >= done_time):
             ready = True
         conversion = min(k_eq  / (k_eq + self.c/self.a) * (1. - math.exp( -time * k * (( self.c/self.a + k_eq ) / k_eq) ) ), 1.)
         out_conc_lr = initial_conc*(1.0 - conversion)
@@ -338,7 +339,7 @@ class Simulation:
         float
                 Final concentration of the limiting reactant when it leaves the reactor
         '''
-        t = self.time #seconds
+        t = self.time * 100 #making batch reactor instantaneous, seconds
         alpha = (1. + 1./k_eq) #for tidyness
 
         conversion =  1./alpha * ( 1. - math.exp(-alpha * k * t) )

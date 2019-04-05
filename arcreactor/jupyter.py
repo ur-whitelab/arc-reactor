@@ -13,11 +13,12 @@ LEGEND = [r'ethylbenzene mol/s', r'm-xylene mol/s'] #, r'TEB mol/s', r'HBr mol/s
 
 class Reactors:
     '''
-    A network of CSTR and PFR chemical reactors joined in a network.
+    A network of CSTR, PFR and Batch chemical reactors joined in a network.
     '''
 
     PFR = 'pfr'
     CSTR = 'cstr'
+    BATCH = 'pbr'
 
     @property
     def source(self):
@@ -40,14 +41,14 @@ class Reactors:
         self.system = simulation.Simulation(0)
         self.state = Kinetics()
 
-    def _step(self, dt=1):
+    def _step(self, dt=100):    #instantaneous visualization
         tmp_graph = copy.copy(self.graph)
         tmp_state = copy.copy(self.state)
-        self.system.graph_time += int(dt*3.25)
+        self.system.graph_time += int(dt*5)
         loop = asyncio.get_event_loop()
         self.state = loop.run_until_complete(self.system.calculate(tmp_state, tmp_graph))
 
-    def add_reactor(self, reactor_type, temperature = 300, volume = 15):
+    def add_reactor(self, reactor_type, temperature = 300, volume = 20):
         '''
         Add the given reactor type and optionally temperature.
 
@@ -65,7 +66,7 @@ class Reactors:
             The id of the reactor. This is used to connect the reactor.
 
         '''
-        assert reactor_type == 'cstr' or reactor_type == 'pfr'
+        assert reactor_type == 'cstr' or reactor_type == 'pfr' or reactor_type == 'pbr'
         node = self.graph.nodes[self.node_ids]
         node.id = self.node_ids
         node.label = reactor_type
@@ -138,6 +139,9 @@ class Reactors:
             else:
                 colors.append('black')
                 labels[n.id] = 'CSTR'
+            else:
+                color.append('brown')
+                labels[n.id] = 'pbr'
         nx.draw_networkx_nodes(self.nxgraph, pos=layout, ax=ax, node_size=radius,
                                      node_color=colors)
         nx.draw_networkx_edges(self.nxgraph, pos=layout, ax=ax)
@@ -190,7 +194,7 @@ class Reactors:
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
         ax.legend(LEGEND)
-        ax.set_title('$t = {:.2f}s$'.format(int(self.system.graph_time / 3.25)))
+        ax.set_title('$t = {:.2f}s$'.format(int(self.system.graph_time / 5)))
         plt.show()
 
     @functools.lru_cache(maxsize=16)
@@ -225,7 +229,7 @@ class Reactors:
             self._plot_fracs(layout, ax, radius=25)
             self._plot_graph(layout, ax)
             ax.legend(LEGEND)
-            ax.set_title('$t = {:.2f}$'.format(self.system.graph_time / 3.25))
+            ax.set_title('$t = {:.2f}$'.format(self.system.graph_time / 5))
             return mplfig_to_npimage(fig)
 
         animation = VideoClip(draw, duration=duration)
