@@ -38,7 +38,6 @@ class Simulation:
         self.connected_to_source = False
         self.edge_list_changed = False
         self.conc0 = self.molar_feed_rate[0]/self.volumetric_feed_rates[0]  # mol/dm3 i.e. mol/L
-        self.start_plotting = False #flag to start the plots
         self.restart_plots = False
         #stoichiometry
         self.a = 1 #reactant 1
@@ -55,7 +54,12 @@ class Simulation:
         ''' Reads labels from the vision protobuf and makes a dictionary which records inward connections of each reactor'''
         for key in graph.nodes:
             node = graph.nodes[key]
-            if (node.id not in self.edge_list_in and not node.delete) and (node.id != 999 and node.id != 0):#don't add for the conditions or source nodes; they never take in
+            if (node.label == 'pbr' and node.id not in self.edge_list_in and not node.delete):
+                self.edge_list_in[node.id] = [0] #secretly connect Batch reactors to source, it shouldn't have any other inputs.
+                self.edge_list_out[0] = [node.id]   #source also needs to output to the reactor
+                self.edge_list_changed = True
+                self.connected_to_source = True
+            elif (node.id not in self.edge_list_in and not node.delete) and (node.id != 999 and node.id != 0):#don't add for the conditions or source nodes; they never take in
                 self.edge_list_in[node.id] = []#new ID, make new lists for it
                 self.vol_in_rates[node.id] = 0.0
                 self.edge_list_changed = True
@@ -186,6 +190,9 @@ class Simulation:
                             max_done_time_in = max(max_done_time_in, self.done_times[idx])
                         conc_in_sum /= vol_in_sum# (C1V1 + C2V2)/(V1+V2) = C_final
                         conc_product /= vol_in_sum
+                        if(kinetics.label == 'pbr'):
+                            self.vol_in_rates[kinetics.id] = self.vol_out_rates[0] #if it's a batch reactor, its vol in rate is just secretly set to the vol out rate of source.
+                            self.edge_list_in[kinetics.id] = [0]
                         if(kinetics.label == 'cstr'): #or kinetics.label == 'pbr'):
                             self.done_times[kinetics.id] = max_done_time_in + 0.0
                         elif(kinetics.label == 'pfr'):
@@ -226,9 +233,10 @@ class Simulation:
         #it may be necessary to add an "else" part of this if statement. This is because the simulation_state.chemical_species
         #will not be None, but it will potentially not be the correct chemical species either.
 
-        if(not self.connected_to_source):
-            self.start_plotting = False
+        if(not self.connected_to_source and not ('pbr' in [kinetics.label for kinetics in simulation_state.kinetics])):
             return simulation_state
+        elif 'pbr' in [kinetics.label for kinetics in simulation_state.kinetics]:
+            self.connected_to_source = True
         self.update_out_rates(0)#ONLY call this after update_edge_list() is done, and ONLY with id == 0
 
         if(self.reactor_number != len(simulation_state.kinetics)):#TODO: Find out why this is never(?) false...
@@ -239,7 +247,6 @@ class Simulation:
             self.start_time = self.graph_time
             self.edge_list_changed = False
             self.restart_plots = True
-            self.start_plotting = True
 
         R = 8.314      # Universal gas constant (kJ/kmol K)
 
@@ -311,10 +318,11 @@ class Simulation:
 
         if(done_time is None):
             done_time = V/self.volumetric_feed_rates[1]
-        factor = 5.0 # 3.25
-        time = min(done_time, self.time/factor) #divide by factor to arbitrarily accelerate display
+        factor = 10.0 # 3.25
+        # time = min(done_time, self.time * factor) #divide by factor to arbitrarily accelerate display
+        time = done_time    # Making pfr instantaneous and showing only equilibrium concentration
         ready = False
-        if(self.time/factor >= done_time):
+        if(self.time * factor >= done_time):
             ready = True
         #This conversion is ONLY for this reactor, not cumulative.
         conversion = min(k_eq  / (k_eq + self.c/self.a) * (1. - math.exp( -time * k * (( self.c/self.a + k_eq ) / k_eq) ) ), 1.)
@@ -339,7 +347,7 @@ class Simulation:
         t = self.time * 100 #making batch reactor instantaneous, seconds
         alpha = (1. + 1./k_eq) #for tidyness
 
-        conversion =  1./alpha * ( 1. - math.exp(-alpha * k * t) )
+        conversion =  1./alpha #* ( 1. - math.exp(-alpha * k * t))
         out_conc_lr = initial_conc * (1.0 - conversion)
         return (out_conc_lr, False) # Batch reactors never pump out
 
