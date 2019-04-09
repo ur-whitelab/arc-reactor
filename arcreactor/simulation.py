@@ -97,10 +97,10 @@ class Simulation:
             if edge.idA == 0:#source
                 self.connected_to_source = True
 
-    def update_out_rates(self, id):
+    def update_out_rates(self, id, have_batch):
         '''Called recursively to calculate volumetric out rates. Not displayed.'''
         if(id == 0):
-            self.vol_out_rates[id] = self.volumetric_feed_rates[0] / float(len(self.edge_list_out[id]))
+            self.vol_out_rates[id] = self.volumetric_feed_rates[0] / float( max(len(self.edge_list_out[id]) + (-1 if have_batch else 0), 1.0 ))#adjust for batch rxr workaround
         else:
             vol_in_sum = 0.0
             for node in self.edge_list_in[id]:
@@ -114,7 +114,7 @@ class Simulation:
         if(len(self.edge_list_out[id]) == 0):
             return
         for key in self.edge_list_out[id]:
-            self.update_out_rates(key)
+            self.update_out_rates(key, have_batch)
 
 
 
@@ -180,18 +180,27 @@ class Simulation:
                             all_incoming_ready = False
                     if(all_incoming_ready):
                         max_done_time_in = 0.0
-                        for idx in self.edge_list_in[kinetics.id]:
-                            val = self.vol_out_rates[idx]
+                        if(kinetics.label != 'pbr'):#normal behavior
+                            for idx in self.edge_list_in[kinetics.id]:
+                                val = self.vol_out_rates[idx]
+                                #concentration of reactants entering the reactor
+                                conc_in_sum += self.conc_out_reactant[idx] * val  #len(self.edge_list_in[kinetics.id])
+                                #keeping track of product coming out of previous reactors
+                                conc_product += self.conc_out_product[idx] * val
+                                vol_in_sum += val
+                                max_done_time_in = max(max_done_time_in, self.done_times[idx])
+                        else:#batch reactor
+                            val = self.vol_out_rates[0] * max( (len(self.edge_list_out[0])-1), 1)#only connected to source, but reverse-account for splitting
                             #concentration of reactants entering the reactor
-                            conc_in_sum += self.conc_out_reactant[idx] * val  #len(self.edge_list_in[kinetics.id])
+                            conc_in_sum += self.conc_out_reactant[0]   #len(self.edge_list_in[kinetics.id])
                             #keeping track of product coming out of previous reactors
-                            conc_product += self.conc_out_product[idx] * val
+                            conc_product += self.conc_out_product[0]
                             vol_in_sum += val
                             max_done_time_in = max(max_done_time_in, self.done_times[idx])
                         conc_in_sum /= vol_in_sum# (C1V1 + C2V2)/(V1+V2) = C_final
                         conc_product /= vol_in_sum
                         if(kinetics.label == 'pbr'):
-                            self.vol_in_rates[kinetics.id] = self.vol_out_rates[0] #if it's a batch reactor, its vol in rate is just secretly set to the vol out rate of source.
+                            self.vol_in_rates[kinetics.id] = self.volumetric_feed_rates[0] #if it's a batch reactor, its vol in rate is just secretly set to the vol out rate of source.
                             self.edge_list_in[kinetics.id] = [0]
                         if(kinetics.label == 'cstr'): #or kinetics.label == 'pbr'):
                             self.done_times[kinetics.id] = max_done_time_in + 0.0
@@ -209,7 +218,11 @@ class Simulation:
                                                                                       k=k,
                                                                                       id=kinetics.id)
                         self.conc_out_reactant[kinetics.id] = conc_limiting
-                        self.conc_out_product[kinetics.id] = conc_product + conc_in_sum - conc_limiting   #taking into account the existing conc of products
+                        if(kinetics.label != 'pbr'):
+                            self.conc_out_product[kinetics.id] = conc_product + conc_in_sum - conc_limiting   #taking into account the existing conc of products
+                        else:
+                            #batch reactor
+                            self.conc_out_product[kinetics.id] = 1.0 - conc_limiting   #taking into account the existing conc of products
                     else:#Do NOT output until ready
                         self.conc_out_reactant[kinetics.id] = 0.0
                         self.conc_out_product[kinetics.id] = 0.0
@@ -224,6 +237,7 @@ class Simulation:
         '''The actual simulation for number of objects specified by the protobuf '''
         #graph = graph # update the graph object when we get it (see controller.py)
         self.update_edge_list(graph)
+        have_batch = False
         simulation_state = self.add_delete_protobuf_objects(simulation_state, graph)
 
         if (len(simulation_state.chemical_species) == 0):
@@ -237,7 +251,8 @@ class Simulation:
             return simulation_state
         elif 'pbr' in [kinetics.label for kinetics in simulation_state.kinetics]:
             self.connected_to_source = True
-        self.update_out_rates(0)#ONLY call this after update_edge_list() is done, and ONLY with id == 0
+            have_batch = True
+        self.update_out_rates(0, have_batch)#ONLY call this after update_edge_list() is done, and ONLY with id == 0
 
         if(self.reactor_number != len(simulation_state.kinetics)):#TODO: Find out why this is never(?) false...
             self.edge_list_changed = True
