@@ -165,7 +165,7 @@ class Reactors:
                     center=layout[self.state.kinetics[i].id],
                     frame=True,
                     colors = colors,
-                    autopct = lambda x: '{:.2f}'.format(x/100. * sum(self.state.kinetics[i].mole_fraction)),
+                    autopct = lambda x: '{:.2f}'.format(x/100. * sum(self.state.kinetics[i].molar_flow_rate)),
                     pctdistance  = 0.8)
     def plot_reactors(self, time = 100, fig = None):
         '''
